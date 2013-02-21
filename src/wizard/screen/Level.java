@@ -19,18 +19,27 @@ import wizard.box2D.Category;
  * To change this template use File | Settings | File Templates.
  */
 public class Level implements Screen {
+    // CONSTANTS
     private final float GRAVITY_X_DEFAULT = -.98f;
+
+    // DRAWING OBJECTS
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
     private final OrthographicCamera cam;
+
+    // BOX2D STUFF
+    private World world;
     private final Body player;
     private final Fixture playerFeet;
     private final Fixture playerBox;
-    private World world;
+
+    // LIBGDX OBJECTS
     private GL11 gl;
     private Input input;
-    private boolean canPlayerJump;
-    private boolean isPlayerTouchingBoundary;
+
+    // GAME VARIABLES
+    private boolean isFeetIsTouchingGround;
+    private float playerCanJump; //when it it <= 0
 
     public Level() {
         world = new World(new Vector2(0, GRAVITY_X_DEFAULT), true);
@@ -55,14 +64,12 @@ public class Level implements Screen {
         PolygonShape polygonShape = new PolygonShape();
         polygonShape.setAsBox(.2f, .3f);
         fixtureDef.shape = polygonShape;
-        fixtureDef.density = 2f;
+        fixtureDef.density = .2f;
         fixtureDef.friction = 0;
         playerBox = player.createFixture(fixtureDef);
-        CircleShape circleShape = new CircleShape();
-        circleShape.setPosition(new Vector2(0, -.15f));
-        circleShape.setRadius(.2f);
-        fixtureDef.shape = circleShape;
+        polygonShape.setAsBox(.18f, .05f, new Vector2(0, -.3f), 0);
         fixtureDef.isSensor = true;
+        setFilter(Category.PLAYER_FEET.filter, fixtureDef.filter);
         playerFeet = player.createFixture(fixtureDef);
 
         //Platform
@@ -74,10 +81,11 @@ public class Level implements Screen {
         edgeShape.set(0, 0, 5, 0);
         fixtureDef.shape = edgeShape;
         fixtureDef.isSensor = false;
+        fixtureDef.friction = .1f;
         body.createFixture(fixtureDef);
         edgeShape.set(0, 0, 0, 5);
         body.createFixture(fixtureDef);
-        edgeShape.set(5, 0, 0, 5);
+        edgeShape.set(5, 0, 5, 5);
         body.createFixture(fixtureDef);
 
 
@@ -85,26 +93,20 @@ public class Level implements Screen {
             @Override
             public void beginContact(Contact contact) {
                 int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER.getID();
+                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
 
-                if (playerTouchingBoundary == collision && (contact.getFixtureA() == playerFeet || contact.getFixtureB() == playerFeet))
-                    canPlayerJump = true;
-
-                if (playerTouchingBoundary == collision && (contact.getFixtureA() == playerBox || contact.getFixtureB() == playerBox))
-                    isPlayerTouchingBoundary = true;
+                if (playerFeetTouchingBoundary == collision && contact.isTouching())
+                    isFeetIsTouchingGround = true;
 
             }
 
             @Override
             public void endContact(Contact contact) {
                 int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER.getID();
+                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
 
-                if (playerTouchingBoundary == collision && (contact.getFixtureA() == playerFeet || contact.getFixtureB() == playerFeet))
-                    canPlayerJump = false;
-
-                if (playerTouchingBoundary == collision && (contact.getFixtureA() == playerBox || contact.getFixtureB() == playerBox))
-                    isPlayerTouchingBoundary = false;
+                if (playerFeetTouchingBoundary == collision && !contact.isTouching())
+                    isFeetIsTouchingGround = false;
             }
 
             @Override
@@ -130,12 +132,27 @@ public class Level implements Screen {
     public void render(float delta) {
         Vector2 worldCenter = player.getWorldCenter();
         //player.applyLinearImpulse(0,.1f, worldCenter.x,worldCenter.y);
-        if (input.isKeyPressed(Input.Keys.W) && isPlayerTouchingBoundary && canPlayerJump)
-            player.applyLinearImpulse(0, .2f, worldCenter.x, worldCenter.y);
+        playerCanJump -= delta;
+        if (input.isKeyPressed(Input.Keys.W) && isFeetIsTouchingGround) {
+            player.applyLinearImpulse(0, .005f, worldCenter.x, worldCenter.y);
+            playerCanJump = 1.5f;
+        }
+
+        float vx = 0;
         if (input.isKeyPressed(Input.Keys.A))
-            player.applyForce(-.5f, 0, worldCenter.x, worldCenter.y);
+            vx += -.1f;
         if (input.isKeyPressed(Input.Keys.D))
-            player.applyForce(.5f, 0, worldCenter.x, worldCenter.y);
+            vx += .1f;
+
+        if (vx == 0) {
+            if (isFeetIsTouchingGround)
+                player.applyForce(player.getLinearVelocity().x * -1.02f, 0, worldCenter.x, worldCenter.y);
+        } else if (vx > 0 && player.getLinearVelocity().x < 1.2) {
+            player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+        } else if (vx < 0 && player.getLinearVelocity().x > -1.2) {
+            player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+        }
+
         world.step(delta, 3, 3);
 
         gl.glClear(GL10.GL_COLOR_BUFFER_BIT);

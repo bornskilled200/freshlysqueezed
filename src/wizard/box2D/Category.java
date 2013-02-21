@@ -14,7 +14,7 @@ import java.util.Map;
  * To change this template use File | Settings | File Templates.
  */
 public enum Category {
-    PLAYER, DEBRIS, WIZARD, BOUNDARY;
+    PLAYER, PLAYER_FEET, DEBRIS, WIZARD, BOUNDARY;
 
     public final Filter filter;
 
