@@ -9,7 +9,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
-import wizard.box2D.Category;
+import wizard.box2D.WizardCategory;
 
 /**
  * Created with IntelliJ IDEA.
@@ -20,8 +20,11 @@ import wizard.box2D.Category;
  */
 public class Level implements Screen {
     // CONSTANTS
-    private final float GRAVITY_X_DEFAULT = -.98f;
+    private final float GRAVITY_Y_DEFAULT = -.98f;
 
+    // LIBGDX OBJECTS
+    private GL11 gl;
+    private Input input;
     // DRAWING OBJECTS
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
@@ -29,20 +32,16 @@ public class Level implements Screen {
 
     // BOX2D STUFF
     private World world;
-    private final Body player;
-    private final Fixture playerFeet;
-    private final Fixture playerBox;
-
-    // LIBGDX OBJECTS
-    private GL11 gl;
-    private Input input;
 
     // GAME VARIABLES
     private boolean isFeetIsTouchingGround;
     private float playerCanJump; //when it it <= 0
+    private final Body player;
+    private final Fixture playerFeet;
+    private final Fixture playerBox;
 
     public Level() {
-        world = new World(new Vector2(0, GRAVITY_X_DEFAULT), true);
+        world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
 
         gl = Gdx.graphics.getGL11();
         cam = new OrthographicCamera();
@@ -60,7 +59,7 @@ public class Level implements Screen {
         bodyDef.fixedRotation = true;
         player = world.createBody(bodyDef);
         FixtureDef fixtureDef = new FixtureDef();
-        setFilter(Category.PLAYER.filter, fixtureDef.filter);
+        setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
         PolygonShape polygonShape = new PolygonShape();
         polygonShape.setAsBox(.2f, .3f);
         fixtureDef.shape = polygonShape;
@@ -69,14 +68,14 @@ public class Level implements Screen {
         playerBox = player.createFixture(fixtureDef);
         polygonShape.setAsBox(.18f, .05f, new Vector2(0, -.3f), 0);
         fixtureDef.isSensor = true;
-        setFilter(Category.PLAYER_FEET.filter, fixtureDef.filter);
+        setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
         playerFeet = player.createFixture(fixtureDef);
 
         //Platform
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
         Body body = world.createBody(bodyDef);
-        setFilter(Category.BOUNDARY.filter, fixtureDef.filter);
+        setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         EdgeShape edgeShape = new EdgeShape();
         edgeShape.set(0, 0, 5, 0);
         fixtureDef.shape = edgeShape;
@@ -93,7 +92,7 @@ public class Level implements Screen {
             @Override
             public void beginContact(Contact contact) {
                 int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
+                int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
 
                 if (playerFeetTouchingBoundary == collision && contact.isTouching())
                     isFeetIsTouchingGround = true;
@@ -103,7 +102,7 @@ public class Level implements Screen {
             @Override
             public void endContact(Contact contact) {
                 int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
+                int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
 
                 if (playerFeetTouchingBoundary == collision && !contact.isTouching())
                     isFeetIsTouchingGround = false;
@@ -190,6 +189,7 @@ public class Level implements Screen {
 
     @Override
     public void dispose() {
-        //To change player of implemented methods use File | Settings | File Templates.
+        world.dispose();
+        renderer.dispose();
     }
 }
