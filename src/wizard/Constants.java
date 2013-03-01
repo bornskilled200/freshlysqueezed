@@ -26,4 +26,6 @@ public interface Constants {
     float PLAYER_JUMP_CONSTANT = 100f;
     float PLAYER_JUMP_FLOAT_TIME = .12f;
     float PLAYER_MAX_SPEED = 8f;
+    // CONSTANTS
+    float GRAVITY_Y_DEFAULT = -9.8f;
 }

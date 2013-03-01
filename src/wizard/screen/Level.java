@@ -22,8 +22,6 @@ import static wizard.Constants.*;
  * To change this template use File | Settings | File Templates.
  */
 public class Level implements Screen {
-    // CONSTANTS
-    private final float GRAVITY_Y_DEFAULT = -9.8f;
     // DRAWING OBJECTS
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
