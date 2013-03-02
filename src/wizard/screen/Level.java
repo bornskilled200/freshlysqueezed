@@ -3,12 +3,14 @@ package wizard.screen;
 import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.GL11;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.box2d.*;
 import wizard.box2D.WizardCategory;
 
@@ -22,6 +24,8 @@ import static wizard.Constants.*;
  * To change this template use File | Settings | File Templates.
  */
 public class Level implements Screen {
+    public static final int CONTROL_MOVE_LEFT = Input.Keys.A;
+    public static final int CONTROL_MOVE_RIGHT = Input.Keys.D;
     // DRAWING OBJECTS
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
@@ -38,6 +42,13 @@ public class Level implements Screen {
     private Fixture playerFeet;
     private Fixture playerBox;
 
+    //INPUT PROCESSING
+    boolean controlMoveLeft = false;
+    boolean controlMoveRight = false;
+    private final Box2DFactory box2DFactory;
+    private final BodyDef bodyDef;
+    private final FixtureDef fixtureDef;
+
     public Level() {
         world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
 
@@ -50,9 +61,9 @@ public class Level implements Screen {
         renderer = new ShapeRenderer();
 
 
-        BodyDef bodyDef = new BodyDef();
-        FixtureDef fixtureDef = new FixtureDef();
-        Box2DFactory box2DFactory = new Box2DFactory();
+        bodyDef = new BodyDef();
+        fixtureDef = new FixtureDef();
+        box2DFactory = new Box2DFactory();
 
 
         box2DFactory.begin();
@@ -60,9 +71,9 @@ public class Level implements Screen {
         createPlayer(bodyDef, fixtureDef, box2DFactory);
         createPlatform(bodyDef, fixtureDef, box2DFactory);
 
-        box2DFactory.end();
 
         world.setContactListener(new PlayerContactListener());
+        Gdx.input.setInputProcessor(new LevelInputProcessor(bodyDef, fixtureDef));
     }
 
     public static void setFilter(Filter filter, Filter target) {
@@ -78,13 +89,14 @@ public class Level implements Screen {
 
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         fixtureDef.isSensor = false;
-        fixtureDef.friction = .1f;
+        fixtureDef.friction = .2f;
         box2DFactory.createEdge(body, fixtureDef, 0, 0, 20, 0);
         box2DFactory.createEdge(body, fixtureDef, 0, 0, 0, 20);
         box2DFactory.createEdge(body, fixtureDef, 20, 0, 20, 20);
 
         box2DFactory.createEdge(body, fixtureDef, 0, 1, 5, 1);
         box2DFactory.createEdge(body, fixtureDef, 7, 2, 9, 2);
+        box2DFactory.createEdge(body, fixtureDef, 10, 1, 11, 1);
     }
 
     private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
@@ -95,12 +107,12 @@ public class Level implements Screen {
 
         setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
         fixtureDef.density = PLAYER_DENSITY;
-        fixtureDef.friction = 0;
-        box2DFactory.createBox(player, fixtureDef, 0, 0, PLAYER_BOUNDARY_WIDTH, PLAYER_BOUNDARY_HEIGHT);
+        fixtureDef.friction = .2f;
+        playerBox = box2DFactory.createBox(player, fixtureDef, 0, 0, PLAYER_BOUNDARY_WIDTH, PLAYER_BOUNDARY_HEIGHT);
 
-        fixtureDef.isSensor = true;
+        fixtureDef.isSensor = false;
         setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
-        box2DFactory.createBox(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH * .9f, .05f);
+        playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH * .9f);
     }
 
     @Override
@@ -120,15 +132,12 @@ public class Level implements Screen {
 
         // HORIZONTAL MOVEMENT
         float vx = 0;
-        if (input.isKeyPressed(Input.Keys.A))
+        if (controlMoveLeft == true)
             vx += -PLAYER_WALK_SPEED;
-        if (input.isKeyPressed(Input.Keys.D))
+        if (controlMoveRight == true)
             vx += PLAYER_WALK_SPEED;
 
-        if (vx == 0) {
-            if (isFeetIsTouchingGround)
-                player.applyForce(player.getLinearVelocity().x * -8f, 0, worldCenter.x, worldCenter.y);
-        } else if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
+        if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
             player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
         } else if (vx < 0 && player.getLinearVelocity().x > -PLAYER_MAX_SPEED) {
             player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
@@ -173,38 +182,122 @@ public class Level implements Screen {
 
     @Override
     public void dispose() {
+        box2DFactory.end();
         world.dispose();
         renderer.dispose();
     }
 
     private class PlayerContactListener implements ContactListener {
+
+        private int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
+        private int playerFeetTouchingDebris = WizardCategory.DEBRIS.getID() | WizardCategory.PLAYER_FEET.getID();
+
         @Override
         public void beginContact(Contact contact) {
             int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-            int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
 
-            if (playerFeetTouchingBoundary == collision && contact.isTouching())
-                isFeetIsTouchingGround = true;
+            if (contact.isTouching()) {
+                if (playerFeetTouchingBoundary == collision || playerFeetTouchingDebris == collision) {
+                    isFeetIsTouchingGround = true;
+                }
+            }
 
         }
 
         @Override
         public void endContact(Contact contact) {
             int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-            int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
 
-            if (playerFeetTouchingBoundary == collision && !contact.isTouching())
-                isFeetIsTouchingGround = false;
+            if (!contact.isTouching()) {
+                if (playerFeetTouchingBoundary == collision || playerFeetTouchingDebris == collision) {
+                    isFeetIsTouchingGround = false;
+                }
+            }
         }
 
         @Override
         public void preSolve(Contact contact, Manifold oldManifold) {
-            //To change body of implemented methods use File | Settings | File Templates.
+            if (isFeetIsTouchingGround) {
+                System.out.print(playerBox.getFriction() + " ");
+                if (controlMoveLeft == false && controlMoveRight == false)
+                    playerFeet.setFriction(PLAYER_STOP_FRICTION);
+                else
+                    playerFeet.setFriction(.2f);
+                System.out.print(playerBox.getFriction() + " | " + contact.getFriction() + " ");
+                contact.resetFriction();
+                contact.setFriction(contact.getFixtureA().getFriction() * contact.getFixtureB().getFriction());
+                System.out.println(contact.getFriction());
+            }
         }
 
         @Override
         public void postSolve(Contact contact, ContactImpulse impulse) {
             //To change body of implemented methods use File | Settings | File Templates.
+        }
+    }
+
+    private class LevelInputProcessor extends InputAdapter {
+        private final BodyDef bodyDef;
+        private final FixtureDef fixtureDef;
+
+        public LevelInputProcessor(BodyDef bodyDef, FixtureDef fixtureDef) {
+            this.bodyDef = bodyDef;
+            this.fixtureDef = fixtureDef;
+            temp = new Vector3();
+        }
+
+        @Override
+        public boolean keyDown(int keycode) {
+            switch (keycode) {
+                case CONTROL_MOVE_LEFT:
+                    controlMoveLeft = true;
+                    break;
+                case CONTROL_MOVE_RIGHT:
+                    controlMoveRight = true;
+                    break;
+            }
+            return super.keyDown(keycode);    //To change body of overridden methods use File | Settings | File Templates.
+        }
+
+        // to unproject the screen coordinates to the camera/viewport
+        Vector3 temp;
+
+        @Override
+        public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+            if (button != Input.Buttons.LEFT && button != Input.Buttons.RIGHT)
+                return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+
+            temp.set(screenX, screenY, 0);
+            cam.unproject(temp);
+
+            //Box2DFactory.resetBodyDef(bodyDef);
+            bodyDef.angle = (float) Math.toRadians(Math.random() * 360);
+            bodyDef.position.set(temp.x, temp.y);
+            bodyDef.type = BodyDef.BodyType.DynamicBody;
+            bodyDef.fixedRotation = false;
+            Body body = world.createBody(bodyDef);
+
+            //Box2DFactory.resetFixtureDef(fixtureDef);
+            setFilter(WizardCategory.DEBRIS.filter, fixtureDef.filter);
+            fixtureDef.density = 1;
+            if (button == Input.Buttons.LEFT)
+                box2DFactory.createBox(body, fixtureDef, 0, 0, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
+            else if (button == Input.Buttons.RIGHT)
+                box2DFactory.createTriangle(body, fixtureDef, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
+            return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+        }
+
+        @Override
+        public boolean keyUp(int keycode) {
+            switch (keycode) {
+                case CONTROL_MOVE_LEFT:
+                    controlMoveLeft = false;
+                    break;
+                case CONTROL_MOVE_RIGHT:
+                    controlMoveRight = false;
+                    break;
+            }
+            return super.keyUp(keycode);    //To change body of overridden methods use File | Settings | File Templates.
         }
     }
 }

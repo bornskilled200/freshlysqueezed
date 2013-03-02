@@ -11,19 +11,18 @@ import com.badlogic.gdx.physics.box2d.*;
  * To change this template use File | Settings | File Templates.
  */
 public class Box2DFactory {
+    private static float[] vertices = new float[6];
     public EdgeShape edgeShape;
     public CircleShape circleShape;
     public PolygonShape polygonShape;
     public boolean isRunning;
 
-    public Box2DFactory()
-    {
+    public Box2DFactory() {
         isRunning = false;
     }
 
-    public void begin()
-    {
-        if (isRunning==true)
+    public void begin() {
+        if (isRunning == true)
             throw new IllegalStateException("Your not supposed to call begin again when you already called this method!");
         edgeShape = new EdgeShape();
         circleShape = new CircleShape();
@@ -31,39 +30,37 @@ public class Box2DFactory {
         isRunning = true;
     }
 
-    public Fixture createEdge(Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2)
-    {
+    public Fixture createEdge(Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
         return createEdge(edgeShape, body, fixtureDef, x1, y1, x2, y2);
     }
 
     private static final Vector2 temp = new Vector2();
 
-    public Fixture createCircle(Body body, FixtureDef fixtureDef, float x, float y, float radius)
-    {
+    public Fixture createCircle(Body body, FixtureDef fixtureDef, float x, float y, float radius) {
         return createCircle(circleShape, body, fixtureDef, temp.set(x, y), radius);
     }
 
-    public Fixture createBox(Body body, FixtureDef fixtureDef, float x, float y, float width, float height)
-    {
-        return createBox(polygonShape, body, fixtureDef, temp.set(x,y), width, height, 0);
-    }
-    public Fixture createBox(Body body, FixtureDef fixtureDef, float x, float y, float width, float height, float angle)
-    {
-        return createBox(polygonShape, body, fixtureDef, temp.set(x,y), width, height, angle);
+    public Fixture createBox(Body body, FixtureDef fixtureDef, float x, float y, float width, float height) {
+        return createBox(polygonShape, body, fixtureDef, temp.set(x, y), width, height, 0);
     }
 
-    public void end()
-    {
+    public Fixture createBox(Body body, FixtureDef fixtureDef, float x, float y, float width, float height, float angle) {
+        return createBox(polygonShape, body, fixtureDef, temp.set(x, y), width, height, angle);
+    }
+
+    public void end() {
         isRunning = false;
-        edgeShape.dispose();    edgeShape = null;
-        circleShape.dispose();  circleShape = null;
-        polygonShape.dispose(); polygonShape = null;
+        edgeShape.dispose();
+        edgeShape = null;
+        circleShape.dispose();
+        circleShape = null;
+        polygonShape.dispose();
+        polygonShape = null;
     }
 
     //~~~~~~~~~~~~
 
-    public static Fixture createEdgeStatic(Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2)
-    {
+    public static Fixture createEdgeStatic(Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
         EdgeShape edgeShape = new EdgeShape();
         Fixture fixture = createEdge(edgeShape, body, fixtureDef, x1, y1, x2, y2);
         edgeShape.dispose();
@@ -72,8 +69,7 @@ public class Box2DFactory {
 
     //~~~~~~~~~~~~
 
-    private static Fixture createEdge(EdgeShape edgeShape, Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2)
-    {
+    private static Fixture createEdge(EdgeShape edgeShape, Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
         edgeShape.set(x1, y1, x2, y2);
         return createFixture(edgeShape, body, fixtureDef);
     }
@@ -85,7 +81,19 @@ public class Box2DFactory {
     }
 
     private static Fixture createBox(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, Vector2 position, float width, float height, float angle) {
-        polygonShape.setAsBox(width,height,position,angle);
+        polygonShape.setAsBox(width, height, position, angle);
+        return createFixture(polygonShape, body, fixtureDef);  //To change body of created methods use File | Settings | File Templates.
+    }
+
+
+    private static Fixture createTriangle(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, float width, float height, float angle) {
+        vertices[0] = -width;
+        vertices[1] = -height;
+        vertices[2] = width;
+        vertices[3] = -height;
+        vertices[4] = 0;
+        vertices[5] = height;
+        polygonShape.set(vertices);
         return createFixture(polygonShape, body, fixtureDef);  //To change body of created methods use File | Settings | File Templates.
     }
 
@@ -124,5 +132,10 @@ public class Box2DFactory {
         bodyDef.active = true;
         bodyDef.gravityScale = 1;
         return bodyDef;
+    }
+
+    public Fixture createTriangle(Body body, FixtureDef fixtureDef, float width, float height) {
+
+        return createTriangle(polygonShape, body, fixtureDef, width, height, 0);  //To change body of created methods use File | Settings | File Templates.
     }
 }

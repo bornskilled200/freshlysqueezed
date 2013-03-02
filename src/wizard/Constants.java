@@ -18,13 +18,14 @@ public interface Constants {
 
     float PLAYER_DENSITY = 1f;
 
-    float PLAYER_WALK_SPEED = 40f;
+    float PLAYER_WALK_SPEED = 60f;
     // Example of a defined variable but no number being assigned to, in this case it just assumes same as walk speed
     float PLAYER_RUN_SPEED = Float.NaN;
+    float PLAYER_STOP_FRICTION = 2;
 
-    float PLAYER_JUMP_START = 3f;
-    float PLAYER_JUMP_CONSTANT = 100f;
-    float PLAYER_JUMP_FLOAT_TIME = .12f;
+    float PLAYER_JUMP_START = 5f;
+    float PLAYER_JUMP_CONSTANT = 200f;
+    float PLAYER_JUMP_FLOAT_TIME = .1f;
     float PLAYER_MAX_SPEED = 8f;
     // CONSTANTS
     float GRAVITY_Y_DEFAULT = -9.8f;
