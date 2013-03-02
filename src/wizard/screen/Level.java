@@ -1,15 +1,20 @@
 package wizard.screen;
 
+import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.GL11;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.box2d.*;
-import wizard.box2D.Category;
+import wizard.box2D.WizardCategory;
+
+import static wizard.Constants.*;
 
 /**
  * Created with IntelliJ IDEA.
@@ -19,30 +24,33 @@ import wizard.box2D.Category;
  * To change this template use File | Settings | File Templates.
  */
 public class Level implements Screen {
-    // CONSTANTS
-    private final float GRAVITY_X_DEFAULT = -.98f;
-
+    public static final int CONTROL_MOVE_LEFT = Input.Keys.A;
+    public static final int CONTROL_MOVE_RIGHT = Input.Keys.D;
     // DRAWING OBJECTS
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
     private final OrthographicCamera cam;
-
-    // BOX2D STUFF
-    private World world;
-    private final Body player;
-    private final Fixture playerFeet;
-    private final Fixture playerBox;
-
     // LIBGDX OBJECTS
     private GL11 gl;
     private Input input;
-
+    // BOX2D STUFF
+    private World world;
     // GAME VARIABLES
     private boolean isFeetIsTouchingGround;
-    private float playerCanJump; //when it it <= 0
+    private float playerCanJump; //when it it >0 then it can still move upwards
+    private Body player;
+    private Fixture playerFeet;
+    private Fixture playerBox;
+
+    //INPUT PROCESSING
+    boolean controlMoveLeft = false;
+    boolean controlMoveRight = false;
+    private final Box2DFactory box2DFactory;
+    private final BodyDef bodyDef;
+    private final FixtureDef fixtureDef;
 
     public Level() {
-        world = new World(new Vector2(0, GRAVITY_X_DEFAULT), true);
+        world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
 
         gl = Gdx.graphics.getGL11();
         cam = new OrthographicCamera();
@@ -53,73 +61,19 @@ public class Level implements Screen {
         renderer = new ShapeRenderer();
 
 
-        //Player
-        BodyDef bodyDef = new BodyDef();
-        bodyDef.type = BodyDef.BodyType.DynamicBody;
-        bodyDef.position.set(2, 2);
-        bodyDef.fixedRotation = true;
-        player = world.createBody(bodyDef);
-        FixtureDef fixtureDef = new FixtureDef();
-        setFilter(Category.PLAYER.filter, fixtureDef.filter);
-        PolygonShape polygonShape = new PolygonShape();
-        polygonShape.setAsBox(.2f, .3f);
-        fixtureDef.shape = polygonShape;
-        fixtureDef.density = .2f;
-        fixtureDef.friction = 0;
-        playerBox = player.createFixture(fixtureDef);
-        polygonShape.setAsBox(.18f, .05f, new Vector2(0, -.3f), 0);
-        fixtureDef.isSensor = true;
-        setFilter(Category.PLAYER_FEET.filter, fixtureDef.filter);
-        playerFeet = player.createFixture(fixtureDef);
-
-        //Platform
-        bodyDef.type = BodyDef.BodyType.StaticBody;
-        bodyDef.position.set(0, 0);
-        Body body = world.createBody(bodyDef);
-        setFilter(Category.BOUNDARY.filter, fixtureDef.filter);
-        EdgeShape edgeShape = new EdgeShape();
-        edgeShape.set(0, 0, 5, 0);
-        fixtureDef.shape = edgeShape;
-        fixtureDef.isSensor = false;
-        fixtureDef.friction = .1f;
-        body.createFixture(fixtureDef);
-        edgeShape.set(0, 0, 0, 5);
-        body.createFixture(fixtureDef);
-        edgeShape.set(5, 0, 5, 5);
-        body.createFixture(fixtureDef);
+        bodyDef = new BodyDef();
+        fixtureDef = new FixtureDef();
+        box2DFactory = new Box2DFactory();
 
 
-        world.setContactListener(new ContactListener() {
-            @Override
-            public void beginContact(Contact contact) {
-                int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
+        box2DFactory.begin();
 
-                if (playerFeetTouchingBoundary == collision && contact.isTouching())
-                    isFeetIsTouchingGround = true;
+        createPlayer(bodyDef, fixtureDef, box2DFactory);
+        createPlatform(bodyDef, fixtureDef, box2DFactory);
 
-            }
 
-            @Override
-            public void endContact(Contact contact) {
-                int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-                int playerFeetTouchingBoundary = Category.BOUNDARY.getID() | Category.PLAYER_FEET.getID();
-
-                if (playerFeetTouchingBoundary == collision && !contact.isTouching())
-                    isFeetIsTouchingGround = false;
-            }
-
-            @Override
-            public void preSolve(Contact contact, Manifold oldManifold) {
-                //To change body of implemented methods use File | Settings | File Templates.
-            }
-
-            @Override
-            public void postSolve(Contact contact, ContactImpulse impulse) {
-                //To change body of implemented methods use File | Settings | File Templates.
-            }
-        });
-
+        world.setContactListener(new PlayerContactListener());
+        Gdx.input.setInputProcessor(new LevelInputProcessor(bodyDef, fixtureDef));
     }
 
     public static void setFilter(Filter filter, Filter target) {
@@ -128,32 +82,70 @@ public class Level implements Screen {
         target.maskBits = filter.maskBits;
     }
 
+    private void createPlatform(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
+        bodyDef.type = BodyDef.BodyType.StaticBody;
+        bodyDef.position.set(0, 0);
+        Body body = world.createBody(bodyDef);
+
+        setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
+        fixtureDef.isSensor = false;
+        fixtureDef.friction = .2f;
+        box2DFactory.createEdge(body, fixtureDef, 0, 0, 20, 0);
+        box2DFactory.createEdge(body, fixtureDef, 0, 0, 0, 20);
+        box2DFactory.createEdge(body, fixtureDef, 20, 0, 20, 20);
+
+        box2DFactory.createEdge(body, fixtureDef, 0, 1, 5, 1);
+        box2DFactory.createEdge(body, fixtureDef, 7, 2, 9, 2);
+        box2DFactory.createEdge(body, fixtureDef, 10, 1, 11, 1);
+    }
+
+    private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
+        bodyDef.type = BodyDef.BodyType.DynamicBody;
+        bodyDef.position.set(2, 2);
+        bodyDef.fixedRotation = true;
+        player = world.createBody(bodyDef);
+
+        setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
+        fixtureDef.density = PLAYER_DENSITY;
+        fixtureDef.friction = .2f;
+        playerBox = box2DFactory.createBox(player, fixtureDef, 0, 0, PLAYER_BOUNDARY_WIDTH, PLAYER_BOUNDARY_HEIGHT);
+
+        fixtureDef.isSensor = false;
+        setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
+        playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH * .9f);
+    }
+
     @Override
     public void render(float delta) {
+        // INPUT PROCESSING
         Vector2 worldCenter = player.getWorldCenter();
-        //player.applyLinearImpulse(0,.1f, worldCenter.x,worldCenter.y);
+
+        // JUMPING
         playerCanJump -= delta;
-        if (input.isKeyPressed(Input.Keys.W) && isFeetIsTouchingGround) {
-            player.applyLinearImpulse(0, .005f, worldCenter.x, worldCenter.y);
-            playerCanJump = 1.5f;
-        }
+        if (input.isKeyPressed(Input.Keys.W)) {
+            if (isFeetIsTouchingGround == true) {
+                player.applyLinearImpulse(0, PLAYER_JUMP_START, worldCenter.x, worldCenter.y);
+                playerCanJump = PLAYER_JUMP_FLOAT_TIME;
+            } else if (playerCanJump > 0)
+                player.applyForce(0, PLAYER_JUMP_CONSTANT, worldCenter.x, worldCenter.y);
+        } else playerCanJump = 0;
 
+        // HORIZONTAL MOVEMENT
         float vx = 0;
-        if (input.isKeyPressed(Input.Keys.A))
-            vx += -.1f;
-        if (input.isKeyPressed(Input.Keys.D))
-            vx += .1f;
+        if (controlMoveLeft == true)
+            vx += -PLAYER_WALK_SPEED;
+        if (controlMoveRight == true)
+            vx += PLAYER_WALK_SPEED;
 
-        if (vx == 0) {
-            if (isFeetIsTouchingGround)
-                player.applyForce(player.getLinearVelocity().x * -1.02f, 0, worldCenter.x, worldCenter.y);
-        } else if (vx > 0 && player.getLinearVelocity().x < 1.2) {
+        if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
             player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
-        } else if (vx < 0 && player.getLinearVelocity().x > -1.2) {
+        } else if (vx < 0 && player.getLinearVelocity().x > -PLAYER_MAX_SPEED) {
             player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
         }
 
-        world.step(delta, 3, 3);
+
+        // GAME PROCESSING
+        world.step(delta, 8, 3); // RECOMMENDED IS EITHER 6,2 OR 8,3
 
         gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
         cam.apply(gl);
@@ -163,7 +155,7 @@ public class Level implements Screen {
     @Override
     public void resize(int width, int height) {
         float ratio = (float) width / height;
-        cam.setToOrtho(false, 5 * ratio, 5);
+        cam.setToOrtho(false, 20 * ratio, 20);
         cam.update();
         renderer.setProjectionMatrix(cam.combined);
     }
@@ -190,6 +182,122 @@ public class Level implements Screen {
 
     @Override
     public void dispose() {
-        //To change player of implemented methods use File | Settings | File Templates.
+        box2DFactory.end();
+        world.dispose();
+        renderer.dispose();
+    }
+
+    private class PlayerContactListener implements ContactListener {
+
+        private int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
+        private int playerFeetTouchingDebris = WizardCategory.DEBRIS.getID() | WizardCategory.PLAYER_FEET.getID();
+
+        @Override
+        public void beginContact(Contact contact) {
+            int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
+
+            if (contact.isTouching()) {
+                if (playerFeetTouchingBoundary == collision || playerFeetTouchingDebris == collision) {
+                    isFeetIsTouchingGround = true;
+                }
+            }
+
+        }
+
+        @Override
+        public void endContact(Contact contact) {
+            int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
+
+            if (!contact.isTouching()) {
+                if (playerFeetTouchingBoundary == collision || playerFeetTouchingDebris == collision) {
+                    isFeetIsTouchingGround = false;
+                }
+            }
+        }
+
+        @Override
+        public void preSolve(Contact contact, Manifold oldManifold) {
+            if (isFeetIsTouchingGround) {
+                System.out.print(playerBox.getFriction() + " ");
+                if (controlMoveLeft == false && controlMoveRight == false)
+                    playerFeet.setFriction(PLAYER_STOP_FRICTION);
+                else
+                    playerFeet.setFriction(.2f);
+                System.out.print(playerBox.getFriction() + " | " + contact.getFriction() + " ");
+                contact.resetFriction();
+                contact.setFriction(contact.getFixtureA().getFriction() * contact.getFixtureB().getFriction());
+                System.out.println(contact.getFriction());
+            }
+        }
+
+        @Override
+        public void postSolve(Contact contact, ContactImpulse impulse) {
+            //To change body of implemented methods use File | Settings | File Templates.
+        }
+    }
+
+    private class LevelInputProcessor extends InputAdapter {
+        private final BodyDef bodyDef;
+        private final FixtureDef fixtureDef;
+
+        public LevelInputProcessor(BodyDef bodyDef, FixtureDef fixtureDef) {
+            this.bodyDef = bodyDef;
+            this.fixtureDef = fixtureDef;
+            temp = new Vector3();
+        }
+
+        @Override
+        public boolean keyDown(int keycode) {
+            switch (keycode) {
+                case CONTROL_MOVE_LEFT:
+                    controlMoveLeft = true;
+                    break;
+                case CONTROL_MOVE_RIGHT:
+                    controlMoveRight = true;
+                    break;
+            }
+            return super.keyDown(keycode);    //To change body of overridden methods use File | Settings | File Templates.
+        }
+
+        // to unproject the screen coordinates to the camera/viewport
+        Vector3 temp;
+
+        @Override
+        public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+            if (button != Input.Buttons.LEFT && button != Input.Buttons.RIGHT)
+                return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+
+            temp.set(screenX, screenY, 0);
+            cam.unproject(temp);
+
+            //Box2DFactory.resetBodyDef(bodyDef);
+            bodyDef.angle = (float) Math.toRadians(Math.random() * 360);
+            bodyDef.position.set(temp.x, temp.y);
+            bodyDef.type = BodyDef.BodyType.DynamicBody;
+            bodyDef.fixedRotation = false;
+            Body body = world.createBody(bodyDef);
+
+            //Box2DFactory.resetFixtureDef(fixtureDef);
+            setFilter(WizardCategory.DEBRIS.filter, fixtureDef.filter);
+            fixtureDef.density = 1;
+            if (button == Input.Buttons.LEFT)
+                box2DFactory.createBox(body, fixtureDef, 0, 0, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
+            else if (button == Input.Buttons.RIGHT)
+                box2DFactory.createTriangle(body, fixtureDef, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
+            return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+        }
+
+        @Override
+        public boolean keyUp(int keycode) {
+            switch (keycode) {
+                case CONTROL_MOVE_LEFT:
+                    controlMoveLeft = false;
+                    break;
+                case CONTROL_MOVE_RIGHT:
+                    controlMoveRight = false;
+                    break;
+            }
+            return super.keyUp(keycode);    //To change body of overridden methods use File | Settings | File Templates.
+        }
     }
 }
