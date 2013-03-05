@@ -30,6 +30,7 @@ public class Level implements Screen {
     private final Box2DDebugRenderer box2DDebugRenderer;
     private final ShapeRenderer renderer;
     private final OrthographicCamera cam;
+    private static final int CONTROL_JUMP = Input.Keys.W;
     // LIBGDX OBJECTS
     private GL11 gl;
     private Input input;
@@ -48,6 +49,7 @@ public class Level implements Screen {
     private final Box2DFactory box2DFactory;
     private final BodyDef bodyDef;
     private final FixtureDef fixtureDef;
+    private boolean controlJump = false;
 
     public Level() {
         world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
@@ -70,7 +72,6 @@ public class Level implements Screen {
 
         createPlayer(bodyDef, fixtureDef, box2DFactory);
         createPlatform(bodyDef, fixtureDef, box2DFactory);
-
 
         world.setContactListener(new PlayerContactListener());
         Gdx.input.setInputProcessor(new LevelInputProcessor(bodyDef, fixtureDef));
@@ -97,6 +98,11 @@ public class Level implements Screen {
         box2DFactory.createEdge(body, fixtureDef, 0, 1, 5, 1);
         box2DFactory.createEdge(body, fixtureDef, 7, 2, 9, 2);
         box2DFactory.createEdge(body, fixtureDef, 10, 1, 11, 1);
+
+        box2DFactory.createEdge(body, fixtureDef, 16, .5f, 17, .5f);
+        box2DFactory.createEdge(body, fixtureDef, 17, 1f, 18, 1f);
+        box2DFactory.createEdge(body, fixtureDef, 18, 1.5f, 19, 1.5f);
+        box2DFactory.createEdge(body, fixtureDef, 19, 2f, 20, 2f);
     }
 
     private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
@@ -107,12 +113,13 @@ public class Level implements Screen {
 
         setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
         fixtureDef.density = PLAYER_DENSITY;
-        fixtureDef.friction = .2f;
+        fixtureDef.friction = 0f;
         playerBox = box2DFactory.createBox(player, fixtureDef, 0, 0, PLAYER_BOUNDARY_WIDTH, PLAYER_BOUNDARY_HEIGHT);
 
         fixtureDef.isSensor = false;
         setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
-        playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH * .9f);
+        playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
+        player.resetMassData();
     }
 
     @Override
@@ -122,7 +129,7 @@ public class Level implements Screen {
 
         // JUMPING
         playerCanJump -= delta;
-        if (input.isKeyPressed(Input.Keys.W)) {
+        if (controlJump) {
             if (isFeetIsTouchingGround == true) {
                 player.applyLinearImpulse(0, PLAYER_JUMP_START, worldCenter.x, worldCenter.y);
                 playerCanJump = PLAYER_JUMP_FLOAT_TIME;
@@ -137,10 +144,15 @@ public class Level implements Screen {
         if (controlMoveRight == true)
             vx += PLAYER_WALK_SPEED;
 
-        if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
-            player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
-        } else if (vx < 0 && player.getLinearVelocity().x > -PLAYER_MAX_SPEED) {
-            player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+        if (vx == 0)
+            playerFeet.setFriction(PLAYER_STOP_FRICTION);
+        else {
+            playerFeet.setFriction(0f);
+            if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
+                player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+            } else if (vx < 0 && player.getLinearVelocity().x > -PLAYER_MAX_SPEED) {
+                player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+            }
         }
 
 
@@ -217,17 +229,6 @@ public class Level implements Screen {
 
         @Override
         public void preSolve(Contact contact, Manifold oldManifold) {
-            if (isFeetIsTouchingGround) {
-                System.out.print(playerBox.getFriction() + " ");
-                if (controlMoveLeft == false && controlMoveRight == false)
-                    playerFeet.setFriction(PLAYER_STOP_FRICTION);
-                else
-                    playerFeet.setFriction(.2f);
-                System.out.print(playerBox.getFriction() + " | " + contact.getFriction() + " ");
-                contact.resetFriction();
-                contact.setFriction(contact.getFixtureA().getFriction() * contact.getFixtureB().getFriction());
-                System.out.println(contact.getFriction());
-            }
         }
 
         @Override
@@ -254,6 +255,9 @@ public class Level implements Screen {
                     break;
                 case CONTROL_MOVE_RIGHT:
                     controlMoveRight = true;
+                    break;
+                case CONTROL_JUMP:
+                    controlJump = true;
                     break;
             }
             return super.keyDown(keycode);    //To change body of overridden methods use File | Settings | File Templates.
@@ -295,6 +299,9 @@ public class Level implements Screen {
                     break;
                 case CONTROL_MOVE_RIGHT:
                     controlMoveRight = false;
+                    break;
+                case CONTROL_JUMP:
+                    controlJump = false;
                     break;
             }
             return super.keyUp(keycode);    //To change body of overridden methods use File | Settings | File Templates.
