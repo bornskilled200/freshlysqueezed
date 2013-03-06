@@ -50,6 +50,10 @@ public class Level implements Screen {
     private final BodyDef bodyDef;
     private final FixtureDef fixtureDef;
     private boolean controlJump = false;
+    private Fixture rightEdge;
+    private Fixture leftEdge;
+    private Fixture floorEdge;
+    private Body levelBody;
 
     public Level() {
         world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
@@ -86,27 +90,25 @@ public class Level implements Screen {
     private void createPlatform(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
-        Body body = world.createBody(bodyDef);
+        levelBody = world.createBody(bodyDef);
 
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         fixtureDef.isSensor = false;
         fixtureDef.friction = .2f;
-        box2DFactory.createEdge(body, fixtureDef, 0, 0, 20, 0);
-        box2DFactory.createEdge(body, fixtureDef, 0, 0, 0, 20);
-        box2DFactory.createEdge(body, fixtureDef, 20, 0, 20, 20);
+        floorEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, levelWidth, 0);
+        leftEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, 0, levelHeight);
+        rightEdge = box2DFactory.createEdge(levelBody, fixtureDef, levelWidth, 0, levelWidth, levelHeight);
 
-        box2DFactory.createEdge(body, fixtureDef, 0, 1, 5, 1);
-        box2DFactory.createEdge(body, fixtureDef, 7, 2, 9, 2);
-        box2DFactory.createEdge(body, fixtureDef, 10, 1, 11, 1);
+        box2DFactory.createEdge(levelBody, fixtureDef, 0, 1, 5, 1);
+        box2DFactory.createEdge(levelBody, fixtureDef, 7, 2, 9, 2);
+        box2DFactory.createEdge(levelBody, fixtureDef, 10, 1, 11, 1);
 
-        box2DFactory.createEdge(body, fixtureDef, 16, .5f, 17, .5f);
-        box2DFactory.createEdge(body, fixtureDef, 17, 1f, 18, 1f);
-        box2DFactory.createEdge(body, fixtureDef, 18, 1.5f, 19, 1.5f);
-        box2DFactory.createEdge(body, fixtureDef, 19, 2f, 20, 2f);
+        box2DFactory.createEdge(levelBody, fixtureDef, 15, 0f, 20, 2f);
     }
 
     private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
         bodyDef.type = BodyDef.BodyType.DynamicBody;
+        bodyDef.bullet = true;
         bodyDef.position.set(2, 2);
         bodyDef.fixedRotation = true;
         player = world.createBody(bodyDef);
@@ -118,9 +120,11 @@ public class Level implements Screen {
 
         fixtureDef.isSensor = false;
         setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
-        playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
-        player.resetMassData();
+        playerFeet = box2DFactory.createBox(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH, .01f);
+        //playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
     }
+
+    private boolean wasMoving = false;
 
     @Override
     public void render(float delta) {
@@ -130,13 +134,14 @@ public class Level implements Screen {
         // JUMPING
         playerCanJump -= delta;
         if (controlJump) {
-            if (isFeetIsTouchingGround == true) {
+            if (isFeetIsTouchingGround == true && playerCanJump <= 0) {
                 player.applyLinearImpulse(0, PLAYER_JUMP_START, worldCenter.x, worldCenter.y);
                 playerCanJump = PLAYER_JUMP_FLOAT_TIME;
-            } else if (playerCanJump > 0)
+                isFeetIsTouchingGround = false;
+            } else if (isFeetIsTouchingGround == false && playerCanJump > 0)
                 player.applyForce(0, PLAYER_JUMP_CONSTANT, worldCenter.x, worldCenter.y);
         } else playerCanJump = 0;
-
+        //m.out.println(playerCanJump);
         // HORIZONTAL MOVEMENT
         float vx = 0;
         if (controlMoveLeft == true)
@@ -144,14 +149,22 @@ public class Level implements Screen {
         if (controlMoveRight == true)
             vx += PLAYER_WALK_SPEED;
 
-        if (vx == 0)
+        if (vx == 0) {
             playerFeet.setFriction(PLAYER_STOP_FRICTION);
-        else {
-            playerFeet.setFriction(0f);
+            if (wasMoving == true) {
+                resetContactsFriction();
+                wasMoving = false;
+            }
+        } else {
             if (vx > 0 && player.getLinearVelocity().x < PLAYER_MAX_SPEED) {
                 player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
             } else if (vx < 0 && player.getLinearVelocity().x > -PLAYER_MAX_SPEED) {
                 player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
+            }
+            playerFeet.setFriction(0f);
+            if (wasMoving == false) {
+                resetContactsFriction();
+                wasMoving = true;
             }
         }
 
@@ -164,13 +177,29 @@ public class Level implements Screen {
         box2DDebugRenderer.render(world, cam.combined);
     }
 
+    private void resetContactsFriction() {
+        for (Contact a : world.getContactList())
+            a.resetFriction();
+    }
+
     @Override
     public void resize(int width, int height) {
         float ratio = (float) width / height;
-        cam.setToOrtho(false, 20 * ratio, 20);
+        levelWidth = 40 * ratio;
+        levelHeight = 40;
+        levelBody.destroyFixture(leftEdge);
+        levelBody.destroyFixture(rightEdge);
+        levelBody.destroyFixture(floorEdge);
+        floorEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, levelWidth, 0);
+        leftEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, 0, levelHeight);
+        rightEdge = box2DFactory.createEdge(levelBody, fixtureDef, levelWidth, 0, levelWidth, levelHeight);
+        cam.setToOrtho(false, levelWidth, levelHeight);
         cam.update();
         renderer.setProjectionMatrix(cam.combined);
     }
+
+    float levelWidth;
+    float levelHeight;
 
     @Override
     public void show() {
