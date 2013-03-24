@@ -1,6 +1,13 @@
 package wizard.screen;
 
-import com.badlogic.gdx.Screen;
+import wizard.PlayerStats;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.EnumMap;
+import java.util.Scanner;
 
 /**
  * Created with IntelliJ IDEA.
@@ -10,4 +17,11 @@ import com.badlogic.gdx.Screen;
  * To change this template use File | Settings | File Templates.
  */
 public class DynamicLevel extends Level {
+    public DynamicLevel(String file) {
+        super();
+    }
+
+    public DynamicLevel(File file) {
+
+    }
 }

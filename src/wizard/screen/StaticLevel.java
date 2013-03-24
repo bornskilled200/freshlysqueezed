@@ -4,11 +4,9 @@ import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
-import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.GL11;
-import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -20,8 +18,6 @@ import wizard.DataLoader;
 import wizard.PlayerStats;
 import wizard.box2D.WizardCategory;
 
-import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,25 +50,6 @@ public class StaticLevel extends Level {
     private Fixture leftEdge;
     private Fixture floorEdge;
     private Fixture playerCrouching;
-
-    private static final Map<PlayerStats, Float> DEFAULT_PLAYER_STATS;
-
-    static {
-        EnumMap<PlayerStats, Float> map = new EnumMap<PlayerStats, Float>(PlayerStats.class);
-        map.put(PlayerStats.WIDTH, .76f);
-        map.put(PlayerStats.HEIGHT, 1.28f);
-
-        map.put(PlayerStats.DENSITY, 1f);
-
-        map.put(PlayerStats.WALK_SPEED, 150f);
-        map.put(PlayerStats.MAX_SPEED, 8f);
-        map.put(PlayerStats.STOP_FRICTION, 5f);
-
-        map.put(PlayerStats.JUMP_START, 10f);
-        map.put(PlayerStats.JUMP_HOLD_FORCE, 100f);
-        map.put(PlayerStats.JUMP_HOLD_TIME, .12f);
-        DEFAULT_PLAYER_STATS = Collections.unmodifiableMap(map);
-    }
 
     private final BitmapFont font;
     private String currentlyLoadedPlayer;
@@ -134,7 +111,6 @@ public class StaticLevel extends Level {
         bodyDef.position.set(2, 2);
         bodyDef.fixedRotation = true;
         player = world.createBody(bodyDef);
-
         setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
         fixtureDef.density = playerStats.get(PlayerStats.DENSITY);
         fixtureDef.friction = 0f;
@@ -146,7 +122,8 @@ public class StaticLevel extends Level {
         fixtureDef.density = 0;
         setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
         playerFeet = box2DFactory.createBox(player, fixtureDef, 0, -playerStats.get(PlayerStats.HEIGHT), playerStats.get(PlayerStats.WIDTH), .1f);
-        //playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
+
+        player.resetMassData();//playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
     }
 
     @Override
@@ -230,7 +207,7 @@ public class StaticLevel extends Level {
                 }
             } else {
                 if (playerCanMoveUpwards > 0)
-                    player.applyForce(0, playerStats.get(PlayerStats.JUMP_HOLD_FORCE), worldCenter.x, worldCenter.y);
+                    player.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_HOLD_FORCE), worldCenter.x, worldCenter.y);
             }
         } else playerCanMoveUpwards = 0;
 
@@ -384,7 +361,7 @@ public class StaticLevel extends Level {
                         break;
                     }
 
-                    setStatsAndResetPlayer(DataLoader.loadPlayer(currentlyLoadedPlayer));
+                    setStatsAndResetPlayer(DataLoader.loadPlayerObject(currentlyLoadedPlayer));
                     break;
                 case CONTROL_LOAD_PLAYER:
                     //todo need to figure out how to ask for an input (jdialogbox equivalent)

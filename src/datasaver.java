@@ -47,7 +47,7 @@ public class datasaver {
                     break;
                 case "load":
                     System.out.print("Type in the file to load: ");
-                    EnumMap<PlayerStats, Float> loadedMap = DataLoader.loadPlayer(scanner.next());
+                    EnumMap<PlayerStats, Float> loadedMap = DataLoader.loadPlayerObject(scanner.next());
                     if (loadedMap == null) {
                         System.out.println("Cannot load this file!");
                         break;
