@@ -2,6 +2,8 @@ package wizard;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
+import wizard.screen.DebugLevel;
+import wizard.screen.DynamicLevel;
 import wizard.screen.StaticLevel;
 
 /**
@@ -13,11 +15,9 @@ import wizard.screen.StaticLevel;
  */
 public class Main extends Game {
 
-    public static StaticLevel SCREEN;
-
     @Override
     public void create() {
-        setScreen(SCREEN = new StaticLevel());
+        setScreen(new DebugLevel(new DynamicLevel("./TrainingLevel.ini")));
     }
 
     public static void main(String[] args) {

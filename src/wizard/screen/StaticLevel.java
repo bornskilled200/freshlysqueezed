@@ -4,28 +4,16 @@ import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
-import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL10;
-import com.badlogic.gdx.graphics.GL11;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.physics.box2d.*;
-import wizard.Constants;
-import wizard.DataLoader;
+import com.badlogic.gdx.physics.box2d.BodyDef;
+import com.badlogic.gdx.physics.box2d.Fixture;
+import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.World;
 import wizard.PlayerStats;
 import wizard.box2D.WizardCategory;
 
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-
-import static wizard.Constants.*;
+import static wizard.Constants.GRAVITY_Y_DEFAULT;
 
 /**
  * Created with IntelliJ IDEA.
@@ -35,80 +23,29 @@ import static wizard.Constants.*;
  * To change this template use File | Settings | File Templates.
  */
 public class StaticLevel extends Level {
-    private static final int playerFeetTouchingBoundary = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
-    private static final int playerFeetTouchingDebris = WizardCategory.DEBRIS.getID() | WizardCategory.PLAYER_FEET.getID();
 
-    // DRAWING OBJECTS
-    private final Box2DDebugRenderer box2DDebugRenderer;
-    private final ShapeRenderer renderer;
-    private final SpriteBatch spritebatch;
-
-    // INPUT HANDLING
-    boolean controlMoveLeft = false;
-    boolean controlMoveRight = false;
-    boolean controlCrouch = false;
-    private boolean controlJump = false;
-    // LIBGDX OBJECTS
-    private GL11 gl;
-    private Fixture rightEdge;
-    private Fixture leftEdge;
-    private Fixture floorEdge;
-    private Fixture playerCrouching;
-
-    private static final Map<PlayerStats, Float> DEFAULT_PLAYER_STATS;
-
-    static {
-        EnumMap<PlayerStats, Float> map = new EnumMap<PlayerStats, Float>(PlayerStats.class);
-        map.put(PlayerStats.WIDTH, .76f);
-        map.put(PlayerStats.HEIGHT, 1.28f);
-
-        map.put(PlayerStats.DENSITY, 1f);
-
-        map.put(PlayerStats.WALK_SPEED, 150f);
-        map.put(PlayerStats.MAX_SPEED, 8f);
-        map.put(PlayerStats.STOP_FRICTION, 5f);
-
-        map.put(PlayerStats.JUMP_START, 10f);
-        map.put(PlayerStats.JUMP_HOLD_FORCE, 100f);
-        map.put(PlayerStats.JUMP_HOLD_TIME, .12f);
-        DEFAULT_PLAYER_STATS = Collections.unmodifiableMap(map);
-    }
-
-    private final BitmapFont font;
-    private String currentlyLoadedPlayer;
+    public static final int COMMAND_RESTART_LEVEL = Input.Keys.F1;
+    public static final float LEVEL_WIDTH = 30;
+    public static final float LEVEL_HEIGHT = 80;
+    protected final Box2DFactory box2DFactory;
+    private final BodyDef bodyDef;
+    private final FixtureDef fixtureDef;
+    private Fixture playerCrouching;       // not too sure how to do this without destryoing the fixture
 
     public StaticLevel() {
         super();
-        playerStats = DEFAULT_PLAYER_STATS;
-        world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
+        box2DFactory = new Box2DFactory();
 
-        gl = Gdx.graphics.getGL11();
-
-        World.setVelocityThreshold(.1f);
-        box2DDebugRenderer = new Box2DDebugRenderer(true, true, true, true, true);
-        renderer = new ShapeRenderer();
-        spritebatch = new SpriteBatch();
-        //spritebatch.enableBlending();
-
-        font = new BitmapFont(Gdx.files.internal("com/badlogic/gdx/utils/arial-15.fnt"), false);
-        //font.setScale(.5f, .5f);
-
-
+        bodyDef = new BodyDef();
+        fixtureDef = new FixtureDef();
         box2DFactory.begin();
 
-        createPlayer(bodyDef, fixtureDef, box2DFactory);
-        createPlatform(bodyDef, fixtureDef, box2DFactory);
+        setupWorld();
 
-        Gdx.input.setInputProcessor(new LevelInputProcessor());
+        Gdx.input.setInputProcessor(new CommandsInputProcessor(Gdx.input.getInputProcessor()));
     }
 
-    public static void setFilter(Filter filter, Filter target) {
-        target.categoryBits = filter.categoryBits;
-        target.groupIndex = filter.groupIndex;
-        target.maskBits = filter.maskBits;
-    }
-
-    private void createPlatform(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
+    private void setupWorld() {
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
         levelBody = world.createBody(bodyDef);
@@ -116,290 +53,106 @@ public class StaticLevel extends Level {
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         fixtureDef.isSensor = false;
         fixtureDef.friction = .2f;
-        floorEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, Constants.LEVEL_WIDTH, 0);
-        leftEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, 0, Constants.LEVEL_HEIGHT);
-        rightEdge = box2DFactory.createEdge(levelBody, fixtureDef, Constants.LEVEL_WIDTH, 0, Constants.LEVEL_WIDTH, Constants.LEVEL_HEIGHT);
+        box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, LEVEL_WIDTH, 0);
+        box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, 0, LEVEL_HEIGHT);
+        box2DFactory.createEdge(levelBody, fixtureDef, LEVEL_WIDTH, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
 
         box2DFactory.createEdge(levelBody, fixtureDef, 0, 1, 5, 1);
         box2DFactory.createEdge(levelBody, fixtureDef, 7, 2, 9, 2);
         box2DFactory.createEdge(levelBody, fixtureDef, 10, 8f, 11, 8f);
         box2DFactory.createEdge(levelBody, fixtureDef, 10, 1, 11, 1);
 
+        float ladderX = LEVEL_WIDTH - 2;
+        for (float i = 1; i < 20; i++) {
+            box2DFactory.createEdge(levelBody, fixtureDef, ladderX, i, LEVEL_WIDTH, i);
+        }
+
         box2DFactory.createEdge(levelBody, fixtureDef, 15, 0f, 20, 2f);
+
+        bodyDef.position.set(2, 2);
+        createPlayer();
     }
 
-    private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
+    private void createPlayer() {
         bodyDef.type = BodyDef.BodyType.DynamicBody;
         bodyDef.bullet = true;
-        bodyDef.position.set(2, 2);
         bodyDef.fixedRotation = true;
-        player = world.createBody(bodyDef);
+        playerBody = world.createBody(bodyDef);
 
         setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
         fixtureDef.density = playerStats.get(PlayerStats.DENSITY);
         fixtureDef.friction = 0f;
-        playerBox = box2DFactory.createBox(player, fixtureDef, 0, 0, playerStats.get(PlayerStats.WIDTH), playerStats.get(PlayerStats.HEIGHT));
-        fixtureDef.isSensor = true;
-        //playerCrouching = box2DFactory.createBox(player,fixtureDef,0,0,PLAYER_BOUNDARY_WIDTH,PLAYER_BOUNDARY_HEIGHT/2f);
+        playerBox = box2DFactory.createBox(playerBody, fixtureDef, 0, 0, playerStats.get(PlayerStats.WIDTH), playerStats.get(PlayerStats.HEIGHT));
+        //fixtureDef.isSensor = true;
+        //playerCrouching = box2DFactory.createBox(playerBody,fixtureDef,0,0,PLAYER_BOUNDARY_WIDTH,PLAYER_BOUNDARY_HEIGHT/2f);
 
         fixtureDef.isSensor = false;
         fixtureDef.density = 0;
         setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
-        playerFeet = box2DFactory.createBox(player, fixtureDef, 0, -playerStats.get(PlayerStats.HEIGHT), playerStats.get(PlayerStats.WIDTH), .1f);
-        //playerFeet = box2DFactory.createCircle(player, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
-    }
-
-    @Override
-    public void render(float delta) {
-        // OUR OWN COLLISION NEEDS
-        processGameCollisions(world.getContactList());
-
-        // INPUT PROCESSING
-        processInput(delta);
-
-
-        // box2D PROCESSING
-        world.step(delta, 8, 3); // RECOMMENDED IS EITHER 6,2 OR 8,3
-
-        // RENDERING
-        gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
-        Vector2 position = player.getPosition();
-        cam.position.set(position.x, position.y, 0);
-        cam.update();
-        cam.apply(gl);
-        box2DDebugRenderer.render(world, cam.combined);
-
-        renderDebugText(spritebatch);
-    }
-
-    private void renderDebugText(SpriteBatch spritebatch) {
-        spritebatch.begin();
-        spritebatch.setColor(Color.WHITE);
-        font.drawMultiLine(spritebatch, "canJump=\t" + canJump + "\n" +
-                "justKickedOff=\t" + justKickedOff + "\n" +
-                "playerCanMoveUpwards = \t" + playerCanMoveUpwards + "\n" +
-                "isFeetTouchingBoundary=\t" + isFeetTouchingBoundary + "\n" +
-                "justJumped=\t" + justJumped, 0, 80);
-        spritebatch.end();
-    }
-
-    private void processGameCollisions(List<Contact> contactList) {
-        isFeetTouchingBoundary = false;
-        for (Contact contact : contactList) {
-            if (!contact.isTouching())
-                continue;
-
-
-            int collision = contact.getFixtureA().getFilterData().categoryBits | contact.getFixtureB().getFilterData().categoryBits;
-
-            if (playerFeetTouchingBoundary == collision || playerFeetTouchingDebris == collision) {
-                isFeetTouchingBoundary = true;
-
-                Vector2 normal = contact.getWorldManifold().getNormal();
-                if (normal.y != 0) {
-                    canJump = true;
-                    justKickedOff = false;
-                }
-            }
-        }
-        if (isFeetTouchingBoundary == false) {
-            justKickedOff = false;
-        }
-    }
-
-    private void processInput(float delta) {
-        Vector2 worldCenter = player.getWorldCenter();
-        Vector2 linearVelocity = player.getLinearVelocity();
-
-        // JUMPING
-        playerCanMoveUpwards -= delta;
-        if (controlJump) {
-            if (isFeetTouchingBoundary == true) {
-                if (canJump == true) {
-                    if (playerCanMoveUpwards <= 0) {
-                        player.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_START), worldCenter.x, worldCenter.y);
-                        playerCanMoveUpwards = playerStats.get(PlayerStats.JUMP_HOLD_TIME);
-                        //isFeetTouchingBoundary = false;
-                        canJump = false;
-                    }
-                } else {
-                    if (justKickedOff == false && linearVelocity.y > 0) {
-                        player.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_START), worldCenter.x, worldCenter.y);
-                        justKickedOff = true;
-                    }
-                }
-            } else {
-                if (playerCanMoveUpwards > 0)
-                    player.applyForce(0, playerStats.get(PlayerStats.JUMP_HOLD_FORCE), worldCenter.x, worldCenter.y);
-            }
-        } else playerCanMoveUpwards = 0;
-
-        // HORIZONTAL MOVEMENT
-        float vx = 0;
-        if (controlMoveLeft == true)
-            vx += -playerStats.get(PlayerStats.WALK_SPEED);
-        if (controlMoveRight == true)
-            vx += playerStats.get(PlayerStats.WALK_SPEED);
-
-        if (vx == 0) {
-            playerFeet.setFriction(playerStats.get(PlayerStats.STOP_FRICTION));
-            if (wasMoving == true) {
-                resetContactsFriction();
-                wasMoving = false;
-            }
-        } else {
-            if (vx > 0 && linearVelocity.x < playerStats.get(PlayerStats.MAX_SPEED)) {
-                player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
-            } else if (vx < 0 && linearVelocity.x > -playerStats.get(PlayerStats.MAX_SPEED)) {
-                player.applyForce(vx, 0, worldCenter.x, worldCenter.y);
-            }
-            playerFeet.setFriction(0f);
-            if (wasMoving == false) {
-                resetContactsFriction();
-                wasMoving = true;
-            }
-        }
-    }
-
-    private void resetContactsFriction() {
-        for (Contact a : world.getContactList())
-            a.resetFriction();
-    }
-
-    @Override
-    public void resize(int width, int height) {
-        float ratio = (float) width / height;
-        setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
-        fixtureDef.friction = .2f;
-        levelBody.destroyFixture(leftEdge);
-        levelBody.destroyFixture(rightEdge);
-        levelBody.destroyFixture(floorEdge);
-        floorEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, Constants.LEVEL_WIDTH, 0);
-        leftEdge = box2DFactory.createEdge(levelBody, fixtureDef, 0, 0, 0, Constants.LEVEL_HEIGHT);
-        rightEdge = box2DFactory.createEdge(levelBody, fixtureDef, Constants.LEVEL_WIDTH, 0, Constants.LEVEL_WIDTH, Constants.LEVEL_HEIGHT);
-        float ladderX = Constants.LEVEL_WIDTH - 2;
-        for (float i = 1; i < 20; i++) {
-            box2DFactory.createEdge(levelBody, fixtureDef, ladderX, i, Constants.LEVEL_WIDTH, i);
-        }
-        cam.setToOrtho(false, 20 * ratio, 20);
-        cam.update();
-        renderer.setProjectionMatrix(cam.combined);
-        //spritebatch.setProjectionMatrix(cam.combined);
-    }
-
-    @Override
-    public void show() {
-        //To change player of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void hide() {
-        //To change player of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void pause() {
-        //To change player of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void resume() {
-        //To change player of implemented methods use File | Settings | File Templates.
+        playerFeet = box2DFactory.createBox(playerBody, fixtureDef, 0, -playerStats.get(PlayerStats.HEIGHT), playerStats.get(PlayerStats.WIDTH), .1f);
+        //playerFeet = box2DFactory.createCircle(playerBody, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
     }
 
     @Override
     public void dispose() {
-        spritebatch.dispose();
-        font.dispose();
-        box2DFactory.end();
-        world.dispose();
         renderer.dispose();
     }
 
-    private class LevelInputProcessor extends InputAdapter {
-        // to unproject the screen coordinates to the camera/viewport
-        Vector3 temp;
+    public class CommandsInputProcessor extends InputAdapter {
+        InputProcessor levelInputProcessor;
 
-        public LevelInputProcessor() {
-            temp = new Vector3();
+        public CommandsInputProcessor(InputProcessor levelInputProcessor) {
+            this.levelInputProcessor = levelInputProcessor;
         }
 
         @Override
         public boolean keyDown(int keycode) {
-            switch (keycode) {
-                case CONTROL_MOVE_LEFT:
-                    controlMoveLeft = true;
-                    break;
-                case CONTROL_MOVE_RIGHT:
-                    controlMoveRight = true;
-                    break;
-                case CONTROL_JUMP:
-                    controlJump = true;
-                    break;
-            }
-            return super.keyDown(keycode);    //To change body of overridden methods use File | Settings | File Templates.
+            return levelInputProcessor.keyDown(keycode);
         }
 
         @Override
         public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-            if (button != Input.Buttons.LEFT && button != Input.Buttons.RIGHT)
-                return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+            return levelInputProcessor.touchDown(screenX, screenY, pointer, button);
+        }
 
-            temp.set(screenX, screenY, 0);
-            cam.unproject(temp);
+        @Override
+        public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+            return levelInputProcessor.touchUp(screenX, screenY, pointer, button);
+        }
 
-            //Box2DFactory.resetBodyDef(bodyDef);
-            bodyDef.angle = (float) Math.toRadians(Math.random() * 360);
-            bodyDef.position.set(temp.x, temp.y);
-            bodyDef.type = BodyDef.BodyType.DynamicBody;
-            bodyDef.fixedRotation = false;
-            Body body = world.createBody(bodyDef);
+        @Override
+        public boolean touchDragged(int screenX, int screenY, int pointer) {
+            return levelInputProcessor.touchDragged(screenX, screenY, pointer);
+        }
 
-            //Box2DFactory.resetFixtureDef(fixtureDef);
-            setFilter(WizardCategory.DEBRIS.filter, fixtureDef.filter);
-            fixtureDef.density = 1;
-            if (button == Input.Buttons.LEFT)
-                box2DFactory.createBox(body, fixtureDef, 0, 0, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
-            else if (button == Input.Buttons.RIGHT)
-                box2DFactory.createTriangle(body, fixtureDef, .2f + (float) Math.random() * .8f, .2f + (float) Math.random() * .8f);
-            return super.touchDown(screenX, screenY, pointer, button);    //To change body of overridden methods use File | Settings | File Templates.
+        @Override
+        public boolean mouseMoved(int screenX, int screenY) {
+            return levelInputProcessor.mouseMoved(screenX, screenY);
+        }
+
+        @Override
+        public boolean scrolled(int amount) {
+            return levelInputProcessor.scrolled(amount);
         }
 
         @Override
         public boolean keyUp(int keycode) {
-            switch (keycode) {
-                case CONTROL_MOVE_LEFT:
-                    controlMoveLeft = false;
-                    break;
-                case CONTROL_MOVE_RIGHT:
-                    controlMoveRight = false;
-                    break;
-                case CONTROL_JUMP:
-                    controlJump = false;
-                    break;
-                case CONTROL_RELOAD_PLAYER:
+            boolean b = levelInputProcessor.keyUp(keycode);
+            if (b == true)
+                return true;
 
-                    if (currentlyLoadedPlayer == null) {
-                        setStatsAndResetPlayer(DEFAULT_PLAYER_STATS);
-                        break;
-                    }
-
-                    setStatsAndResetPlayer(DataLoader.loadPlayer(currentlyLoadedPlayer));
-                    break;
-                case CONTROL_LOAD_PLAYER:
-                    //todo need to figure out how to ask for an input (jdialogbox equivalent)
-                    break;
-                case CONTROL_LOAD_LEVEL:
-                    break;
-                case CONTROL_RELOAD_LEVEL:
-                    break;
-
+            if (keycode == COMMAND_RESTART_LEVEL) {
+                world.dispose();
+                world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
+                setupWorld();
+                return true;
             }
-            return super.keyUp(keycode);    //To change body of overridden methods use File | Settings | File Templates.
+            return false;    //To change body of overridden methods use File | Settings | File Templates.
         }
-    }
 
-    private void setStatsAndResetPlayer(Map<PlayerStats, Float> playerStats) {
-        //todo set the stats of the player then reset the player(box2d) if needed
+        @Override
+        public boolean keyTyped(char character) {
+            return levelInputProcessor.keyTyped(character);
+        }
     }
 }
