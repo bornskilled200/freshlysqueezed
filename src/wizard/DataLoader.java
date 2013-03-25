@@ -7,6 +7,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Scanner;
 
 /**
@@ -47,7 +48,10 @@ public class DataLoader {
             while (scanner.hasNextLine()) {
                 String nextLine = scanner.nextLine();
                 int seperator = nextLine.indexOf('=');
-                String enumString = nextLine.substring(0, seperator);
+                if (seperator == -1)
+                    continue;
+
+                String enumString = nextLine.substring(0, seperator).trim();
                 String valueString = nextLine.substring(seperator + 1);
                 PlayerStats playerStat = PlayerStats.valueOf(enumString);
                 float statValue = Float.parseFloat(valueString);
@@ -55,6 +59,11 @@ public class DataLoader {
             }
         } catch (IOException e) {
             e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+        EnumSet<PlayerStats> playerStatses = EnumSet.complementOf(EnumSet.copyOf(map.keySet()));
+        for (PlayerStats playerStatse : playerStatses) {
+            map.put(playerStatse, Float.NaN);
         }
         return map;
     }

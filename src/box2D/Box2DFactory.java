@@ -60,33 +60,23 @@ public class Box2DFactory {
 
     //~~~~~~~~~~~~
 
-    public static Fixture createEdgeStatic(Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
-        EdgeShape edgeShape = new EdgeShape();
-        Fixture fixture = createEdge(edgeShape, body, fixtureDef, x1, y1, x2, y2);
-        edgeShape.dispose();
-        return fixture;
-    }
-
-    //~~~~~~~~~~~~
-
-    private static Fixture createEdge(EdgeShape edgeShape, Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
+    public static Fixture createEdge(EdgeShape edgeShape, Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {
         edgeShape.set(x1, y1, x2, y2);
         return createFixture(edgeShape, body, fixtureDef);
     }
 
-    private static Fixture createCircle(CircleShape circleShape, Body body, FixtureDef fixtureDef, Vector2 position, float radius) {
+    public static Fixture createCircle(CircleShape circleShape, Body body, FixtureDef fixtureDef, Vector2 position, float radius) {
         circleShape.setPosition(position);
         circleShape.setRadius(radius);
         return createFixture(circleShape, body, fixtureDef);
     }
 
-    private static Fixture createBox(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, Vector2 position, float width, float height, float angle) {
+    public static Fixture createBox(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, Vector2 position, float width, float height, float angle) {
         polygonShape.setAsBox(width, height, position, angle);
         return createFixture(polygonShape, body, fixtureDef);  //To change body of created methods use File | Settings | File Templates.
     }
 
-
-    private static Fixture createTriangle(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, float width, float height, float angle) {
+    public static Fixture createTriangle(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, float width, float height) {
         vertices[0] = -width;
         vertices[1] = -height;
         vertices[2] = width;
@@ -136,6 +126,6 @@ public class Box2DFactory {
 
     public Fixture createTriangle(Body body, FixtureDef fixtureDef, float width, float height) {
 
-        return createTriangle(polygonShape, body, fixtureDef, width, height, 0);  //To change body of created methods use File | Settings | File Templates.
+        return createTriangle(polygonShape, body, fixtureDef, width, height);  //To change body of created methods use File | Settings | File Templates.
     }
 }
