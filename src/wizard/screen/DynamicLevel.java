@@ -15,10 +15,7 @@ import wizard.box2D.WizardCategory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.TreeMap;
+import java.util.*;
 
 import static wizard.Constants.GRAVITY_Y_DEFAULT;
 
@@ -65,7 +62,7 @@ public class DynamicLevel extends Level {
 
     private void setupWorld() {
         if (playerFile != null) {
-            playerStats = DataLoader.loadPlayer(playerFile);
+            playerStats = DataLoader.loadPlayerIni(playerFile);
         }
 
         loadWorld();
@@ -90,6 +87,12 @@ public class DynamicLevel extends Level {
         }
     }
 
+    @Override
+    public String toString() {
+        return "playerFile='" + new File(playerFile).getAbsolutePath() + '\n' +
+                "levelFile='" + new File(levelFile).getAbsolutePath();
+    }
+
     private void parseWorld(Scanner scanner, boolean concatenateLevelLoaded) throws InvalidSyntaxException {
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
@@ -102,17 +105,14 @@ public class DynamicLevel extends Level {
         Map<String, Float> variables = new TreeMap<>();
         while (scanner.hasNextLine()) {
             line++;
-            String nextLine = scanner.nextLine().toLowerCase();
+            String nextLine = scanner.nextLine().toLowerCase(Locale.ENGLISH);
             String[] split = nextLine.split("\\s");
             if (split.length == 0)
                 continue;
 
             if (concatenateLevelLoaded == true)
                 loadedLevel += nextLine + "\n";
-            System.out.println(nextLine);
-            System.out.println(Arrays.toString(split) + '\n');
             float x1, y1, x2, y2, width, height, size;
-
             switch (split[0]) {
                 case "":
                     //Tis a comment
@@ -161,10 +161,16 @@ public class DynamicLevel extends Level {
         if (variables.containsKey("player_spawn_x") && variables.containsKey("player_spawn_y")) {
             bodyDef.position.set(variables.get("player_spawn_x"), variables.get("player_spawn_y"));
         }
-        createPlayer(bodyDef, fixtureDef, box2DFactory);
+        createPlayer();
     }
 
-    private void createPlayer(BodyDef bodyDef, FixtureDef fixtureDef, Box2DFactory box2DFactory) {
+    @Override
+    public void dispose() {
+        box2DFactory.end();
+        super.dispose();    //To change body of overridden methods use File | Settings | File Templates.
+    }
+
+    private void createPlayer() {
         bodyDef.type = BodyDef.BodyType.DynamicBody;
         bodyDef.bullet = true;
         bodyDef.fixedRotation = true;
@@ -185,6 +191,7 @@ public class DynamicLevel extends Level {
     }
 
     public class CommandsInputProcessor extends InputAdapter {
+        private static final int COMMAND_RELOAD_PLAYER = Input.Keys.F4;
         InputProcessor levelInputProcessor;
 
         public CommandsInputProcessor(InputProcessor levelInputProcessor) {
@@ -237,6 +244,16 @@ public class DynamicLevel extends Level {
                     world.dispose();
                     world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
                     loadWorld();
+                    break;
+                case COMMAND_RELOAD_PLAYER:
+                    if (playerStats == DEFAULT_PLAYER_STATS)
+                        break;
+
+                    Vector2 playerPosition = playerBody.getWorldCenter();
+                    world.destroyBody(playerBody);
+                    playerStats = DataLoader.loadPlayerIni(playerFile);
+                    bodyDef.position.set(playerPosition);
+                    createPlayer();
                     break;
                 default:
                     return false;

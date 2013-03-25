@@ -44,6 +44,11 @@ public class DebugLevel implements Screen {
     }
 
     private void renderDebugText(SpriteBatch spritebatch) {
+        String levelText = level.toString();
+
+        int place = -1, amount = 1;
+        while ((place = levelText.indexOf('\n', place + 1)) > 0) amount++;
+
         spritebatch.setProjectionMatrix(ortho2DMatrix);
         spritebatch.begin();
         spritebatch.setColor(Color.WHITE);
@@ -51,7 +56,7 @@ public class DebugLevel implements Screen {
                 "justKickedOff=\t" + level.justKickedOff + "\n" +
                 "playerCanMoveUpwards = \t" + level.playerCanMoveUpwards + "\n" +
                 "isFeetTouchingBoundary=\t" + level.isFeetTouchingBoundary + "\n" +
-                "justJumped=\t" + level.justJumped, 0, font.getLineHeight() * 6);
+                "justJumped=\t" + level.justJumped + "\n" + levelText, 0, font.getLineHeight() * (5 + amount));
         if (level.getGameState() == GameState.PAUSED)
             font.draw(spritebatch, "PAUSED", Gdx.graphics.getWidth() / 2, Gdx.graphics.getHeight() / 2);
         spritebatch.end();
@@ -109,6 +114,9 @@ public class DebugLevel implements Screen {
 
         @Override
         public boolean keyDown(int keycode) {
+            if (keycode == Input.Keys.ESCAPE)
+                level.setGameState(level.getGameState() == GameState.PAUSED ? GameState.RUNNING : GameState.PAUSED);
+
             return levelInputProcessor.keyDown(keycode);
         }
 

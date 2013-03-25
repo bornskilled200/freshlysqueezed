@@ -1,8 +1,6 @@
 package wizard.screen;
 
-import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL10;
@@ -33,23 +31,7 @@ public abstract class Level implements Screen {
     public static final int PLAYER_FEET_TOUCHING_BOUNDARY = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
     public static final int PLAYER_FEET_TOUCHING_DEBRIS = WizardCategory.DEBRIS.getID() | WizardCategory.PLAYER_FEET.getID();
 
-    public World getWorld() {
-        return world;
-    }
-
-    public void setWorld(World world) {
-        this.world = world;
-    }
-
-    public void setGameState(GameState gameState) {
-        this.gameState = gameState;
-    }
-
     private LevelInputProcessor inputProcessor;
-
-    public void setLevelInputProcessor(LevelInputProcessor levelInputProcessor) {
-        this.inputProcessor = levelInputProcessor;
-    }
 
     // LIBGDX OBJECTS
     protected final GL11 gl;
@@ -65,14 +47,16 @@ public abstract class Level implements Screen {
     protected Body levelBody;
 
     // GAME VARIABLES
+    protected Map<PlayerStats, Float> playerStats;
+    private GameState gameState;
     protected float playerCanMoveUpwards; //when it it >0 then it can still move upwards
     protected boolean justKickedOff = false;
     protected boolean justJumped = false;
+
     // todo turn these 3 boolean to a state variable
     protected boolean wasMoving = false;
     protected boolean isFeetTouchingBoundary = true;
     public boolean canJump = false;
-    protected Map<PlayerStats, Float> playerStats;
 
 
     static {
@@ -86,11 +70,11 @@ public abstract class Level implements Screen {
         map.put(PlayerStats.MAX_SPEED, 8f);
         map.put(PlayerStats.STOP_FRICTION, 5f);
 
-        map.put(PlayerStats.JUMP_START, 18f);
-        map.put(PlayerStats.JUMP_HOLD_FORCE, 200f);
+        map.put(PlayerStats.JUMP_START_IMPULSE, 18f);
+        map.put(PlayerStats.JUMP_HOLD_IMPULSE, 2f);
         map.put(PlayerStats.JUMP_HOLD_TIME, .12f);
 
-        map.put(PlayerStats.KICKOFF_START, 10f);
+        map.put(PlayerStats.KICKOFF_START_IMPULSE, 12f);
 
         EnumSet<PlayerStats> playerStatses = EnumSet.complementOf(EnumSet.copyOf(map.keySet()));
         for (PlayerStats playerStatse : playerStatses) {
@@ -99,12 +83,11 @@ public abstract class Level implements Screen {
         DEFAULT_PLAYER_STATS = Collections.unmodifiableMap(map);
     }
 
+    // INPUT HANDLING
     //boolean controlCrouch = false;
     protected boolean controlJump = false;
-    // INPUT HANDLING
     boolean controlMoveLeft = false;
     boolean controlMoveRight = false;
-    private GameState gameState;
 
     public Level() {
         cam = new OrthographicCamera(20, 20);
@@ -121,30 +104,28 @@ public abstract class Level implements Screen {
         gameState = GameState.RUNNING;
     }
 
+
+    public World getWorld() {
+        return world;
+    }
+
+    public void setWorld(World world) {
+        this.world = world;
+    }
+
+    public void setGameState(GameState gameState) {
+        this.gameState = gameState;
+    }
+
+
+    public void setLevelInputProcessor(LevelInputProcessor levelInputProcessor) {
+        this.inputProcessor = levelInputProcessor;
+    }
+
     public static void setFilter(Filter filter, Filter target) {
         target.categoryBits = filter.categoryBits;
         target.groupIndex = filter.groupIndex;
         target.maskBits = filter.maskBits;
-    }
-
-    @Override
-    public void show() {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void hide() {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void pause() {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void resume() {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     public LevelInputProcessor getInputProcessor() {
@@ -212,22 +193,18 @@ public abstract class Level implements Screen {
         if (controlJump) {
             if (isFeetTouchingBoundary == true) {
                 if (canJump == true) {
-                    if (playerCanMoveUpwards <= 0) {
-                        playerBody.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_START), worldCenter.x, worldCenter.y);
-                        playerCanMoveUpwards = playerStats.get(PlayerStats.JUMP_HOLD_TIME);
-                        canJump = false;
-                    }
+                    playerBody.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_START_IMPULSE), worldCenter.x, worldCenter.y);
+                    playerCanMoveUpwards = playerStats.get(PlayerStats.JUMP_HOLD_TIME);
+                    canJump = false;
                 } else {
-                    if (playerCanMoveUpwards > 0)
-                        playerBody.applyForce(0, playerStats.get(PlayerStats.JUMP_HOLD_FORCE), worldCenter.x, worldCenter.y);
-                    else if (justKickedOff == false && linearVelocity.y > 0) {
-                        playerBody.applyLinearImpulse(0, playerStats.get(PlayerStats.KICKOFF_START), worldCenter.x, worldCenter.y);
+                    if (justKickedOff == false && linearVelocity.y > 0) {
+                        playerBody.applyLinearImpulse(0, playerStats.get(PlayerStats.KICKOFF_START_IMPULSE), worldCenter.x, worldCenter.y);
                         justKickedOff = true;
                     }
                 }
             } else {
                 if (playerCanMoveUpwards > 0)
-                    playerBody.applyForce(0, playerStats.get(PlayerStats.JUMP_HOLD_FORCE), worldCenter.x, worldCenter.y);
+                    playerBody.applyLinearImpulse(0, playerStats.get(PlayerStats.JUMP_HOLD_IMPULSE), worldCenter.x, worldCenter.y);
             }
         } else playerCanMoveUpwards = 0;
 
@@ -273,6 +250,26 @@ public abstract class Level implements Screen {
 
     public GameState getGameState() {
         return gameState;
+    }
+
+    @Override
+    public void show() {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void hide() {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void pause() {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void resume() {
+        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     protected class LevelInputProcessor extends InputAdapter {

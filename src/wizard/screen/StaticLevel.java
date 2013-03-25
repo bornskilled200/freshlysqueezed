@@ -95,7 +95,9 @@ public class StaticLevel extends Level {
 
     @Override
     public void dispose() {
+        box2DFactory.end();
         renderer.dispose();
+        super.dispose();
     }
 
     public class CommandsInputProcessor extends InputAdapter {

@@ -17,7 +17,7 @@ public class Main extends Game {
 
     @Override
     public void create() {
-        setScreen(new DebugLevel(new DynamicLevel("./TrainingLevel.ini")));
+        setScreen(new DebugLevel(new DynamicLevel("./TrainingLevel.ini", "./TrainingPlayer.ini")));
     }
 
     public static void main(String[] args) {
