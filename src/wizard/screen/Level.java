@@ -1,5 +1,6 @@
 package wizard.screen;
 
+import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.Screen;
@@ -270,6 +271,61 @@ public abstract class Level implements Screen {
     @Override
     public void resume() {
         //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    private void setupPlayerBody(BodyDef bodyDef, FixtureDef fixtureDef) {
+        bodyDef.type = BodyDef.BodyType.DynamicBody;
+        bodyDef.bullet = true;
+        bodyDef.fixedRotation = true;
+        playerBody = world.createBody(bodyDef);
+
+        setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
+        fixtureDef.density = playerStats.get(PlayerStats.DENSITY);
+        fixtureDef.friction = 0f;
+    }
+
+    private void setupPlayerFeet(FixtureDef fixtureDef) {
+        fixtureDef.isSensor = false;
+        fixtureDef.density = 0;
+        setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
+    }
+
+    // SET THE BODYDEF POSITION IF YOU WANT TO CHANGE THE SPAWNING POSITION OF THE PLAYER
+    protected void createPlayer(BodyDef bodyDef, Box2DFactory box2DFactory, FixtureDef fixtureDef) {
+        setupPlayerBody(bodyDef, fixtureDef);
+
+        float playerWidth = playerStats.get(PlayerStats.WIDTH);
+        float playerHeight = playerStats.get(PlayerStats.HEIGHT);
+
+
+        playerBox = box2DFactory.createBox(playerBody, fixtureDef, 0, 0, playerWidth, playerHeight);
+        //fixtureDef.isSensor = true;
+        //playerCrouching = box2DFactory.createBox(playerBody,fixtureDef,0,0,PLAYER_BOUNDARY_WIDTH,PLAYER_BOUNDARY_HEIGHT/2f);
+
+        setupPlayerFeet(fixtureDef);
+        playerFeet = box2DFactory.createBox(playerBody, fixtureDef, 0, -playerHeight, playerWidth, .2f);
+        //playerFeet = box2DFactory.createCircle(playerBody, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
+    }
+
+    // SET THE BODYDEF POSITION IF YOU WANT TO CHANGE THE SPAWNING POSITION OF THE PLAYER
+    protected void createPlayer(BodyDef bodyDef, PolygonShape polygonShape, FixtureDef fixtureDef) {
+        setupPlayerBody(bodyDef, fixtureDef);
+        fixtureDef.shape = polygonShape;
+
+        float playerWidth = playerStats.get(PlayerStats.WIDTH);
+        float playerHeight = playerStats.get(PlayerStats.HEIGHT);
+
+        polygonShape.setAsBox(playerWidth, playerHeight);
+        playerBox = playerBody.createFixture(fixtureDef);
+        //fixtureDef.isSensor = true;
+        //playerCrouching = box2DFactory.createBox(playerBody,fixtureDef,0,0,PLAYER_BOUNDARY_WIDTH,PLAYER_BOUNDARY_HEIGHT/2f);
+
+        setupPlayerFeet(fixtureDef);
+        polygonShape.setAsBox(playerWidth, .2f, new Vector2(0, -playerHeight), 0);
+        playerFeet = playerBody.createFixture(fixtureDef);
+        //playerFeet = box2DFactory.createCircle(playerBody, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
+
+        fixtureDef.shape = null; //Just to make sure that if disposed we do not keep a copy of it
     }
 
     protected class LevelInputProcessor extends InputAdapter {
