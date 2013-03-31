@@ -58,6 +58,11 @@ public class Box2DFactory {
         polygonShape = null;
     }
 
+    public void dispose() {
+        if (isRunning)
+            end();
+    }
+
     //~~~~~~~~~~~~
 
     public static Fixture createEdge(EdgeShape edgeShape, Body body, FixtureDef fixtureDef, float x1, float y1, float x2, float y2) {

@@ -70,27 +70,7 @@ public class StaticLevel extends Level {
         box2DFactory.createEdge(levelBody, fixtureDef, 15, 0f, 20, 2f);
 
         bodyDef.position.set(2, 2);
-        createPlayer();
-    }
-
-    private void createPlayer() {
-        bodyDef.type = BodyDef.BodyType.DynamicBody;
-        bodyDef.bullet = true;
-        bodyDef.fixedRotation = true;
-        playerBody = world.createBody(bodyDef);
-
-        setFilter(WizardCategory.PLAYER.filter, fixtureDef.filter);
-        fixtureDef.density = playerStats.get(PlayerStats.DENSITY);
-        fixtureDef.friction = 0f;
-        playerBox = box2DFactory.createBox(playerBody, fixtureDef, 0, 0, playerStats.get(PlayerStats.WIDTH), playerStats.get(PlayerStats.HEIGHT));
-        //fixtureDef.isSensor = true;
-        //playerCrouching = box2DFactory.createBox(playerBody,fixtureDef,0,0,PLAYER_BOUNDARY_WIDTH,PLAYER_BOUNDARY_HEIGHT/2f);
-
-        fixtureDef.isSensor = false;
-        fixtureDef.density = 0;
-        setFilter(WizardCategory.PLAYER_FEET.filter, fixtureDef.filter);
-        playerFeet = box2DFactory.createBox(playerBody, fixtureDef, 0, -playerStats.get(PlayerStats.HEIGHT), playerStats.get(PlayerStats.WIDTH), .1f);
-        //playerFeet = box2DFactory.createCircle(playerBody, fixtureDef, 0, -PLAYER_BOUNDARY_HEIGHT, PLAYER_BOUNDARY_WIDTH);
+        createPlayer(bodyDef, box2DFactory, fixtureDef);
     }
 
     @Override
