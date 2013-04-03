@@ -18,7 +18,7 @@ public class Main extends Game {
 
     @Override
     public void create() {
-        setScreen(new DebugLevel(new LuaLevel("./TrainingLevel.lua")));
+        setScreen(new DebugLevel(new LuaLevel("./TrainingLevel.lua", "./TrainingPlayer.lua")));
     }
 
     public static void main(String[] args) {

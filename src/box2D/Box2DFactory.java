@@ -11,7 +11,7 @@ import com.badlogic.gdx.physics.box2d.*;
  * To change this template use File | Settings | File Templates.
  */
 public class Box2DFactory {
-    private static float[] vertices = new float[6];
+    private static float[] triangleVertices = new float[6];
     public EdgeShape edgeShape;
     public CircleShape circleShape;
     public PolygonShape polygonShape;
@@ -82,13 +82,13 @@ public class Box2DFactory {
     }
 
     public static Fixture createTriangle(PolygonShape polygonShape, Body body, FixtureDef fixtureDef, float width, float height) {
-        vertices[0] = -width;
-        vertices[1] = -height;
-        vertices[2] = width;
-        vertices[3] = -height;
-        vertices[4] = 0;
-        vertices[5] = height;
-        polygonShape.set(vertices);
+        triangleVertices[0] = -width;
+        triangleVertices[1] = -height;
+        triangleVertices[2] = width;
+        triangleVertices[3] = -height;
+        triangleVertices[4] = 0;
+        triangleVertices[5] = height;
+        polygonShape.set(triangleVertices);
         return createFixture(polygonShape, body, fixtureDef);  //To change body of created methods use File | Settings | File Templates.
     }
 

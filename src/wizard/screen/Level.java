@@ -3,6 +3,7 @@ package wizard.screen;
 import box2D.Box2DFactory;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.GL11;
@@ -31,34 +32,12 @@ public abstract class Level implements Screen {
     public static final Map<PlayerStats, Float> DEFAULT_PLAYER_STATS;
     public static final int PLAYER_FEET_TOUCHING_BOUNDARY = WizardCategory.BOUNDARY.getID() | WizardCategory.PLAYER_FEET.getID();
     public static final int PLAYER_FEET_TOUCHING_DEBRIS = WizardCategory.DEBRIS.getID() | WizardCategory.PLAYER_FEET.getID();
-
-    private LevelInputProcessor inputProcessor;
-
-    // LIBGDX OBJECTS
-    protected final GL11 gl;
-    protected final OrthographicCamera cam;
     protected final SpriteBatch spritebatch;
     protected final ShapeRenderer renderer;
-
-    // BOX2D STUFF
-    protected World world;
-    protected Body playerBody;
-    protected Fixture playerFeet;
-    protected Fixture playerBox;
-    protected Body levelBody;
-
-    // GAME VARIABLES
-    protected Map<PlayerStats, Float> playerStats;
-    private GameState gameState;
-    protected float playerCanMoveUpwards; //when it it >0 then it can still move upwards
-    protected boolean justKickedOff = false;
-    protected boolean justJumped = false;
-
-    // todo turn these 3 boolean to a state variable
-    protected boolean wasMoving = false;
-    protected boolean isFeetTouchingBoundary = true;
+    // LIBGDX OBJECTS
+    private final GL11 gl;
+    private final OrthographicCamera cam;
     public boolean canJump = false;
-
 
     static {
         EnumMap<PlayerStats, Float> map = new EnumMap<PlayerStats, Float>(PlayerStats.class);
@@ -84,11 +63,27 @@ public abstract class Level implements Screen {
         DEFAULT_PLAYER_STATS = Collections.unmodifiableMap(map);
     }
 
+    // BOX2D STUFF
+    private World world;
+    protected Body playerBody;
+    protected Fixture playerFeet;
+    protected Fixture playerBox;
+    protected Body levelBody;
+    // GAME VARIABLES
+    protected Map<PlayerStats, Float> playerStats;
+    protected float playerCanMoveUpwards; //when it it >0 then it can still move upwards
+    //protected boolean justJumped = false;
+
+    protected boolean justKickedOff = false;  // todo turn these 3 boolean to a state variable
+    protected boolean wasMoving = false;
+    protected boolean isFeetTouchingBoundary = true;
     // INPUT HANDLING
     //boolean controlCrouch = false;
-    protected boolean controlJump = false;
-    boolean controlMoveLeft = false;
-    boolean controlMoveRight = false;
+    private boolean controlJump = false;
+    private boolean controlMoveLeft = false;
+    private boolean controlMoveRight = false;
+    private LevelInputProcessor inputProcessor;
+    private GameState gameState;
 
     public Level() {
         cam = new OrthographicCamera(20, 20);
@@ -105,6 +100,9 @@ public abstract class Level implements Screen {
         gameState = GameState.RUNNING;
     }
 
+    public OrthographicCamera getCamera() {
+        return cam;
+    }
 
     public World getWorld() {
         return world;
@@ -114,22 +112,24 @@ public abstract class Level implements Screen {
         this.world = world;
     }
 
-    public void setGameState(GameState gameState) {
-        this.gameState = gameState;
+    public void newWorld()
+    {
+        if (world!=null)
+            world.dispose();
+        world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
     }
-
 
     public void setLevelInputProcessor(LevelInputProcessor levelInputProcessor) {
         this.inputProcessor = levelInputProcessor;
     }
 
-    public static void setFilter(Filter filter, Filter target) {
+    public void setFilter(Filter filter, Filter target) {
         target.categoryBits = filter.categoryBits;
         target.groupIndex = filter.groupIndex;
         target.maskBits = filter.maskBits;
     }
 
-    public LevelInputProcessor getInputProcessor() {
+    public InputProcessor getInputProcessor() {
         return inputProcessor;
     }
 
@@ -253,6 +253,10 @@ public abstract class Level implements Screen {
         return gameState;
     }
 
+    public void setGameState(GameState gameState) {
+        this.gameState = gameState;
+    }
+
     @Override
     public void show() {
         //To change body of implemented methods use File | Settings | File Templates.
@@ -338,6 +342,8 @@ public abstract class Level implements Screen {
 
         @Override
         public boolean keyDown(int keycode) {
+            if (gameState != GameState.RUNNING)
+                return false;
             switch (keycode) {
                 case CONTROL_MOVE_LEFT:
                     controlMoveLeft = true;
@@ -356,6 +362,8 @@ public abstract class Level implements Screen {
 
         @Override
         public boolean keyUp(int keycode) {
+            if (gameState != GameState.RUNNING)
+                return false;
             switch (keycode) {
                 case CONTROL_MOVE_LEFT:
                     controlMoveLeft = false;

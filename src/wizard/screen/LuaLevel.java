@@ -1,13 +1,17 @@
 package wizard.screen;
 
 import box2D.Box2DFactory;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.World;
 import wizard.DataLoader;
 import wizard.box2D.WizardCategory;
 
 import javax.script.*;
 import java.io.Reader;
+
+import static wizard.Constants.GRAVITY_Y_DEFAULT;
 
 /**
  * Created with IntelliJ IDEA.
@@ -21,9 +25,10 @@ public class LuaLevel extends DynamicLevel {
     private FixtureDef fixtureDef;
     private Box2DFactory box2DFactory;
 
-    private ScriptEngine scriptEngine;
+    //private ScriptEngine scriptEngine;
     private CompiledScript loadedLevel;
     private Bindings bindings;
+    private ScriptEngineFactory factory;
 
     public LuaLevel(String level) {
         this(level, null);
@@ -33,7 +38,8 @@ public class LuaLevel extends DynamicLevel {
         super(level, player);
 
         ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
-        scriptEngine = scriptEngineManager.getEngineByExtension(".lua");
+        ScriptEngine scriptEngine = scriptEngineManager.getEngineByExtension(".lua");
+        factory = scriptEngine.getFactory();
 
         bodyDef = new BodyDef();
         fixtureDef = new FixtureDef();
@@ -49,10 +55,16 @@ public class LuaLevel extends DynamicLevel {
     }
 
     @Override
+    public void createPlayer(float x, float y) {
+        bodyDef.position.set(x,y);
+        createPlayer(bodyDef, box2DFactory, fixtureDef);
+    }
+
+    @Override
     public void parsePlayer() {
         String playerFile = getPlayerFile();
         if (playerFile != null) {
-            playerStats = DataLoader.loadPlayerIni(playerFile);
+            playerStats = DataLoader.loadPlayerLua(playerFile);
         }
     }
 
@@ -64,6 +76,9 @@ public class LuaLevel extends DynamicLevel {
 
     @Override
     public void restartWorld() {
+        World world = getWorld();
+        bindings.put("world", world);
+
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
@@ -84,10 +99,8 @@ public class LuaLevel extends DynamicLevel {
 
     @Override
     protected void parseWorld(Reader reader, boolean isNewWorld) throws ScriptException {
-
+        ScriptEngine scriptEngine = factory.getScriptEngine();
         loadedLevel = ((Compilable) scriptEngine).compile(reader);
-        //scriptEngine.eval(reader);
         restartWorld();
-
     }
 }

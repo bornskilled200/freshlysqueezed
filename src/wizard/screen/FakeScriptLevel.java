@@ -10,7 +10,6 @@ import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.World;
 import wizard.DataLoader;
-import wizard.PlayerStats;
 import wizard.box2D.WizardCategory;
 
 import javax.script.ScriptException;
@@ -49,8 +48,12 @@ public class FakeScriptLevel extends DynamicLevel {
         box2DFactory.begin();
 
         setupWorld();
+    }
 
-        Gdx.input.setInputProcessor(new CommandsInputProcessor(Gdx.input.getInputProcessor()));
+    @Override
+    public void createPlayer(float x, float y) {
+        bodyDef.position.set(x,y);
+        createPlayer(bodyDef, box2DFactory, fixtureDef);
     }
 
     @Override
@@ -62,6 +65,7 @@ public class FakeScriptLevel extends DynamicLevel {
 
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
+        World world = getWorld();
         levelBody = world.createBody(bodyDef);
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         fixtureDef.isSensor = false;
@@ -152,80 +156,4 @@ public class FakeScriptLevel extends DynamicLevel {
         }
     }
 
-    public class CommandsInputProcessor extends InputAdapter {
-        private static final int COMMAND_RELOAD_PLAYER = Input.Keys.F4;
-        InputProcessor levelInputProcessor;
-
-        public CommandsInputProcessor(InputProcessor levelInputProcessor) {
-            this.levelInputProcessor = levelInputProcessor;
-        }
-
-        @Override
-        public boolean keyDown(int keycode) {
-            return levelInputProcessor.keyDown(keycode);
-        }
-
-        @Override
-        public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-            return levelInputProcessor.touchDown(screenX, screenY, pointer, button);
-        }
-
-        @Override
-        public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-            return levelInputProcessor.touchUp(screenX, screenY, pointer, button);
-        }
-
-        @Override
-        public boolean touchDragged(int screenX, int screenY, int pointer) {
-            return levelInputProcessor.touchDragged(screenX, screenY, pointer);
-        }
-
-        @Override
-        public boolean mouseMoved(int screenX, int screenY) {
-            return levelInputProcessor.mouseMoved(screenX, screenY);
-        }
-
-        @Override
-        public boolean scrolled(int amount) {
-            return levelInputProcessor.scrolled(amount);
-        }
-
-        @Override
-        public boolean keyUp(int keycode) {
-            boolean b = levelInputProcessor.keyUp(keycode);
-            if (b == true)
-                return true;
-
-            switch (keycode) {
-                case COMMAND_RESTART_LEVEL:
-                    world.dispose();
-                    world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
-                    restartWorld();
-                    break;
-                case COMMAND_RELOAD_LEVEL:
-                    world.dispose();
-                    world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
-                    loadWorld();
-                    break;
-                case COMMAND_RELOAD_PLAYER:
-                    if (playerStats == DEFAULT_PLAYER_STATS)
-                        break;
-
-                    Vector2 playerPosition = playerBody.getWorldCenter();
-                    world.destroyBody(playerBody);
-                    playerStats = DataLoader.loadPlayerIni(getPlayerFile());
-                    bodyDef.position.set(playerPosition);
-                    createPlayer(bodyDef, box2DFactory, fixtureDef);
-                    break;
-                default:
-                    return false;
-            }
-            return true;    //To change body of overridden methods use File | Settings | File Templates.
-        }
-
-        @Override
-        public boolean keyTyped(char character) {
-            return levelInputProcessor.keyTyped(character);
-        }
-    }
 }

@@ -48,7 +48,7 @@ public class StaticLevel extends Level {
     private void setupWorld() {
         bodyDef.type = BodyDef.BodyType.StaticBody;
         bodyDef.position.set(0, 0);
-        levelBody = world.createBody(bodyDef);
+        levelBody = getWorld().createBody(bodyDef);
 
         setFilter(WizardCategory.BOUNDARY.filter, fixtureDef.filter);
         fixtureDef.isSensor = false;
@@ -124,8 +124,7 @@ public class StaticLevel extends Level {
                 return true;
 
             if (keycode == COMMAND_RESTART_LEVEL) {
-                world.dispose();
-                world = new World(new Vector2(0, GRAVITY_Y_DEFAULT), true);
+                newWorld();
                 setupWorld();
                 return true;
             }

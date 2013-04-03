@@ -1,7 +1,12 @@
 package wizard;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
+import java.io.StringReader;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -67,4 +72,40 @@ public class DataLoader {
         }
         return map;
     }
+
+    public static EnumMap<PlayerStats, Float> loadPlayerLua(String file) {
+        ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+        ScriptEngine engine = scriptEngineManager.getEngineByExtension(".lua");
+
+        FileSystem fileSystem = FileSystems.getDefault();
+        Path path = fileSystem.getPath(file);
+        if (Files.isDirectory(path))
+            throw new IllegalArgumentException("This method is not supposed to read a directory");
+
+        EnumMap<PlayerStats, Float> map = new EnumMap<PlayerStats, Float>(PlayerStats.class);
+        try {
+            engine.eval(new InputStreamReader(Files.newInputStream(path)));
+            for (PlayerStats a : PlayerStats.values()) {
+                Object value = engine.get(a.toString());
+                if (value == null) {
+                    System.out.println("WARNING, Player Stat " + a + " is not set!");
+                    continue;
+                }
+                //System.out.println(value + " " + value.getClass());
+                if (value instanceof Double)
+                    map.put(a, ((Double) value).floatValue());
+                else if (value instanceof Integer)
+                    map.put(a, ((Integer) value).floatValue());
+                else System.out.println("WARNING, Player Stat " + a + " is not set because it is not a number");
+                //float v = Float.parseFloat(value.toString());
+            }
+        } catch (ScriptException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (IOException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+
+        return map;
+    }
+
 }
